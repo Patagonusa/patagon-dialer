@@ -1403,9 +1403,30 @@ app.post('/api/voice/connect', express.urlencoded({ extended: true }), (req, res
 });
 
 // Proxy endpoint for Twilio recordings (so users don't need Twilio auth)
-app.get('/api/recordings/:recordingSid', authMiddleware, async (req, res) => {
+// Accepts auth via header OR query param (needed for <audio> element)
+app.get('/api/recordings/:recordingSid', async (req, res) => {
   try {
     const { recordingSid } = req.params;
+    const { token } = req.query;
+
+    // Check auth from header or query param
+    const authToken = req.headers.authorization?.replace('Bearer ', '') || token;
+
+    if (!authToken) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Verify token
+    try {
+      jwt.verify(authToken, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    // Validate recording SID format
+    if (!recordingSid || !recordingSid.startsWith('RE')) {
+      return res.status(400).json({ error: 'Invalid recording ID' });
+    }
 
     // Fetch recording from Twilio with authentication
     const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
@@ -1423,7 +1444,8 @@ app.get('/api/recordings/:recordingSid', authMiddleware, async (req, res) => {
     // Stream the recording to the client
     res.set({
       'Content-Type': 'audio/mpeg',
-      'Content-Disposition': `inline; filename="${recordingSid}.mp3"`
+      'Content-Disposition': `inline; filename="${recordingSid}.mp3"`,
+      'Cache-Control': 'private, max-age=3600'
     });
 
     response.body.pipe(res);

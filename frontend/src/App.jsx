@@ -1800,18 +1800,30 @@ function MainApp({ user, onLogout }) {
 
 // Call History Section Component
 function CallHistorySection({ calls }) {
+  const { t } = useTranslation()
+
+  // Get token from localStorage to authenticate recording playback
+  const getRecordingUrl = (url) => {
+    if (!url) return null
+    const token = localStorage.getItem('token')
+    if (!token) return url
+    // Add token as query param for audio element authentication
+    const separator = url.includes('?') ? '&' : '?'
+    return `${url}${separator}token=${token}`
+  }
+
   if (!calls || calls.length === 0) {
     return (
       <div className="call-history-section">
-        <h3>Historial de Llamadas</h3>
-        <p className="empty-text">No hay llamadas registradas</p>
+        <h3>{t.callHistory || 'Historial de Llamadas'}</h3>
+        <p className="empty-text">{t.noCallsRecorded || 'No hay llamadas registradas'}</p>
       </div>
     )
   }
 
   return (
     <div className="call-history-section">
-      <h3>Historial de Llamadas</h3>
+      <h3>{t.callHistory || 'Historial de Llamadas'}</h3>
       <div className="call-history-list">
         {calls.map(call => (
           <div key={call.id} className={`call-item ${call.direction}`}>
@@ -1819,13 +1831,13 @@ function CallHistorySection({ calls }) {
               <span className={`call-direction ${call.direction}`}>
                 {call.direction === 'inbound' ? '📞 Entrante' : '📱 Saliente'}
               </span>
-              <span className="call-phone">{call.phone}</span>
+              <span className="call-phone">{call.to_number || call.from_number || call.phone}</span>
               <span className="call-duration">{call.duration ? `${Math.floor(call.duration / 60)}:${(call.duration % 60).toString().padStart(2, '0')}` : '-'}</span>
               <span className="call-date">{new Date(call.created_at).toLocaleString()}</span>
             </div>
             {call.recording_url && (
               <audio controls className="call-recording">
-                <source src={call.recording_url} type="audio/mpeg" />
+                <source src={getRecordingUrl(call.recording_url)} type="audio/mpeg" />
               </audio>
             )}
           </div>
