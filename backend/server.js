@@ -476,53 +476,98 @@ app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
   }
 });
 
-// Upload Excel file (Admin Only)
+// Helper function to find column value with flexible naming
+function getColumnValue(row, possibleNames) {
+  for (const name of possibleNames) {
+    // Try exact match first
+    if (row[name] !== undefined) return row[name];
+    // Try case-insensitive match
+    const key = Object.keys(row).find(k => k.toLowerCase() === name.toLowerCase());
+    if (key) return row[key];
+  }
+  return '';
+}
+
+// Upload Excel/CSV file (Admin Only)
 app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    console.log('Uploading file:', req.file.originalname, 'Size:', req.file.size);
+
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-    const leads = jsonData.map(row => {
-      // Parse name into first and last name
-      const nameParts = (row.Name || '').trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+    console.log('Parsed rows:', jsonData.length);
+    if (jsonData.length > 0) {
+      console.log('Column headers:', Object.keys(jsonData[0]));
+    }
+
+    if (jsonData.length === 0) {
+      return res.status(400).json({ error: 'No data found in file' });
+    }
+
+    const leads = jsonData.map((row, index) => {
+      // Flexible column name matching
+      const name = getColumnValue(row, ['Name', 'Nombre', 'Full Name', 'FullName', 'Customer Name', 'Lead Name']);
+      const firstName = getColumnValue(row, ['First Name', 'FirstName', 'First', 'Nombre']);
+      const lastName = getColumnValue(row, ['Last Name', 'LastName', 'Last', 'Apellido']);
+
+      // If we have a full name but not separate first/last, split it
+      let finalFirstName = firstName;
+      let finalLastName = lastName;
+      if (name && !firstName && !lastName) {
+        const nameParts = String(name).trim().split(' ');
+        finalFirstName = nameParts[0] || '';
+        finalLastName = nameParts.slice(1).join(' ') || '';
+      }
 
       return {
-        first_name: firstName,
-        last_name: lastName,
-        address: row.Address || '',
-        city: row.City || '',
-        state: row.State || '',
-        zip: row.Zip || '',
-        phone: formatPhone(row.Phone || ''),
-        phone2: formatPhone(row['Phone 2'] || ''),
-        phone3: formatPhone(row['Phone 3'] || ''),
-        job_group: row['Job Group'] || '',
-        lead_date: row.Date || null,
-        source: row.Source || '',
+        first_name: String(finalFirstName || '').substring(0, 100),
+        last_name: String(finalLastName || '').substring(0, 100),
+        address: String(getColumnValue(row, ['Address', 'Direccion', 'Street', 'Street Address']) || '').substring(0, 255),
+        city: String(getColumnValue(row, ['City', 'Ciudad']) || '').substring(0, 100),
+        state: String(getColumnValue(row, ['State', 'Estado', 'ST']) || '').substring(0, 50),
+        zip: String(getColumnValue(row, ['Zip', 'ZIP', 'Zip Code', 'ZipCode', 'Postal', 'Postal Code', 'CP', 'Codigo Postal']) || '').substring(0, 20),
+        phone: formatPhone(String(getColumnValue(row, ['Phone', 'Phone1', 'Phone 1', 'Telefono', 'Tel', 'Mobile', 'Cell']) || '')),
+        phone2: formatPhone(String(getColumnValue(row, ['Phone2', 'Phone 2', 'Telefono2', 'Alt Phone', 'Secondary Phone']) || '')),
+        phone3: formatPhone(String(getColumnValue(row, ['Phone3', 'Phone 3', 'Telefono3', 'Third Phone']) || '')),
+        job_group: String(getColumnValue(row, ['Job Group', 'JobGroup', 'Group', 'Grupo', 'Category', 'Type']) || '').substring(0, 100),
+        lead_date: getColumnValue(row, ['Date', 'Lead Date', 'Fecha', 'Created', 'Created Date']) || null,
+        source: String(getColumnValue(row, ['Source', 'Fuente', 'Lead Source', 'Origin', 'Campaign']) || '').substring(0, 100),
         status: 'new',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
     });
 
+    // Filter out leads with no phone (require at least one phone number)
+    const validLeads = leads.filter(lead => lead.phone || lead.phone2 || lead.phone3);
+
+    console.log('Valid leads to insert:', validLeads.length);
+
+    if (validLeads.length === 0) {
+      return res.status(400).json({ error: 'No valid leads found. Each lead must have at least one phone number.' });
+    }
+
     const { data, error } = await supabase
       .from('leads')
-      .insert(leads)
+      .insert(validLeads)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw error;
+    }
 
     res.json({
       message: `Successfully imported ${data.length} leads`,
-      count: data.length
+      count: data.length,
+      skipped: leads.length - validLeads.length
     });
   } catch (error) {
     console.error('Error uploading file:', error);
