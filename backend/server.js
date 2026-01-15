@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
+const AccessToken = twilio.jwt.AccessToken;
+const VoiceGrant = AccessToken.VoiceGrant;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,12 +24,16 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-// Twilio client
-const twilioClient = twilio(
-  process.env.TWILIO_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Twilio credentials
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_API_KEY = process.env.TWILIO_API_KEY || TWILIO_ACCOUNT_SID;
+const TWILIO_API_SECRET = process.env.TWILIO_API_SECRET || TWILIO_AUTH_TOKEN;
+const TWILIO_TWIML_APP_SID = process.env.TWILIO_TWIML_APP_SID || '';
 const TWILIO_PHONE = process.env.TWILIO_PHONE;
+
+// Twilio client
+const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 // Multer for file uploads
 const storage = multer.memoryStorage();
@@ -749,39 +755,47 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
       .single();
 
     // Create call record
-    if (lead) {
-      await supabase.from('calls').insert({
-        lead_id: lead.id,
-        direction: 'inbound',
-        phone: From,
-        twilio_sid: CallSid,
-        status: 'ringing',
-        created_at: new Date().toISOString()
-      });
+    await supabase.from('calls').insert({
+      lead_id: lead?.id || null,
+      direction: 'inbound',
+      from_number: From,
+      to_number: To,
+      call_sid: CallSid,
+      status: 'ringing',
+      created_at: new Date().toISOString()
+    });
 
-      // Create inbound alert
-      await supabase.from('inbound_alerts').insert({
-        lead_id: lead.id,
-        phone: From,
-        message: `Llamada entrante de ${lead.first_name} ${lead.last_name}`,
-        status: 'unread',
-        created_at: new Date().toISOString()
-      });
-    }
+    // Create inbound alert
+    await supabase.from('inbound_alerts').insert({
+      lead_id: lead?.id || null,
+      phone: From,
+      message: lead ? `Llamada entrante de ${lead.first_name} ${lead.last_name}` : `Llamada entrante de ${From}`,
+      status: 'unread',
+      created_at: new Date().toISOString()
+    });
 
-    // TwiML response - you can customize this
-    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say language="es-MX">Gracias por llamar a Patagon. Por favor espere mientras lo conectamos.</Say>
-  <Record maxLength="300" action="/api/webhook/call-status" recordingStatusCallback="/api/webhook/call-status"/>
-</Response>`;
+    // TwiML response - ring all connected browser clients
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.say({ language: 'es-MX' }, 'Por favor espere mientras lo conectamos.');
+
+    // Dial all connected browser clients
+    const dial = twiml.dial({
+      timeout: 30,
+      record: 'record-from-answer',
+      recordingStatusCallback: '/api/webhook/call-status'
+    });
+
+    // Ring all browser clients (they will see the incoming call)
+    dial.client('felipe_patagonusa_com'); // Default client identity
 
     res.type('text/xml');
-    res.send(twiml);
+    res.send(twiml.toString());
   } catch (error) {
     console.error('Error handling incoming call:', error);
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.say({ language: 'es-MX' }, 'Lo sentimos, no hay agentes disponibles. Por favor intente más tarde.');
     res.type('text/xml');
-    res.send('<?xml version="1.0" encoding="UTF-8"?><Response><Say>Error processing call</Say></Response>');
+    res.send(twiml.toString());
   }
 });
 
@@ -1125,6 +1139,99 @@ function formatPhone(phone) {
   }
   return cleaned;
 }
+
+// ==================== TWILIO VOICE CLIENT ENDPOINTS ====================
+
+// Generate Twilio Access Token for browser client
+app.get('/api/voice/token', authMiddleware, async (req, res) => {
+  try {
+    const identity = req.user.email.replace(/[^a-zA-Z0-9]/g, '_');
+
+    const accessToken = new AccessToken(
+      TWILIO_ACCOUNT_SID,
+      TWILIO_API_KEY,
+      TWILIO_API_SECRET,
+      { identity }
+    );
+
+    const voiceGrant = new VoiceGrant({
+      outgoingApplicationSid: TWILIO_TWIML_APP_SID,
+      incomingAllow: true
+    });
+
+    accessToken.addGrant(voiceGrant);
+
+    res.json({
+      token: accessToken.toJwt(),
+      identity
+    });
+  } catch (error) {
+    console.error('Error generating voice token:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// TwiML for outbound calls from browser
+app.post('/api/voice/outbound', express.urlencoded({ extended: true }), (req, res) => {
+  const { To, leadId } = req.body;
+
+  console.log('Outbound call request:', { To, leadId });
+
+  const twiml = new twilio.twiml.VoiceResponse();
+
+  // Dial the number
+  const dial = twiml.dial({
+    callerId: TWILIO_PHONE,
+    record: 'record-from-answer',
+    recordingStatusCallback: '/api/webhook/call-status',
+    recordingStatusCallbackEvent: 'completed'
+  });
+
+  dial.number(To);
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+// Make outbound call (alternative to browser SDK)
+app.post('/api/voice/call', authMiddleware, async (req, res) => {
+  try {
+    const { to, leadId } = req.body;
+
+    const call = await twilioClient.calls.create({
+      url: `https://patagon-dialer-api.onrender.com/api/voice/connect?leadId=${leadId}`,
+      to: to,
+      from: TWILIO_PHONE,
+      record: true,
+      recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/call-status'
+    });
+
+    // Save call record
+    await supabase.from('calls').insert({
+      lead_id: leadId,
+      direction: 'outbound',
+      from_number: TWILIO_PHONE,
+      to_number: to,
+      call_sid: call.sid,
+      status: 'initiated',
+      created_at: new Date().toISOString()
+    });
+
+    res.json({ success: true, callSid: call.sid });
+  } catch (error) {
+    console.error('Error making call:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// TwiML for connecting call
+app.post('/api/voice/connect', express.urlencoded({ extended: true }), (req, res) => {
+  const twiml = new twilio.twiml.VoiceResponse();
+  twiml.say({ language: 'es-MX' }, 'Conectando...');
+  twiml.dial().conference('PatagonDialer');
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

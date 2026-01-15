@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react'
 import axios from 'axios'
+import { Device } from '@twilio/voice-sdk'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -194,7 +195,22 @@ const TRANSLATIONS = {
     errorUploading: 'Error al subir archivo',
     errorApproving: 'Error al aprobar',
     errorRejecting: 'Error al rechazar',
-    errorMarking: 'Error al marcar como leído'
+    errorMarking: 'Error al marcar como leído',
+
+    // Dialer
+    dialer: 'Teléfono',
+    incomingCall: 'Llamada Entrante',
+    answer: 'Contestar',
+    hangUp: 'Colgar',
+    calling: 'Llamando...',
+    connected: 'Conectado',
+    callEnded: 'Llamada Terminada',
+    mute: 'Silenciar',
+    unmute: 'Activar',
+    dialerReady: 'Teléfono Listo',
+    dialerConnecting: 'Conectando...',
+    dialerOffline: 'Desconectado',
+    callFrom: 'Llamada de'
   },
   en: {
     // General
@@ -382,7 +398,22 @@ const TRANSLATIONS = {
     errorUploading: 'Error uploading file',
     errorApproving: 'Error approving',
     errorRejecting: 'Error rejecting',
-    errorMarking: 'Error marking as read'
+    errorMarking: 'Error marking as read',
+
+    // Dialer
+    dialer: 'Phone',
+    incomingCall: 'Incoming Call',
+    answer: 'Answer',
+    hangUp: 'Hang Up',
+    calling: 'Calling...',
+    connected: 'Connected',
+    callEnded: 'Call Ended',
+    mute: 'Mute',
+    unmute: 'Unmute',
+    dialerReady: 'Phone Ready',
+    dialerConnecting: 'Connecting...',
+    dialerOffline: 'Offline',
+    callFrom: 'Call from'
   }
 }
 
@@ -667,7 +698,154 @@ function MainApp({ user, onLogout }) {
   const [showCreateLeadModal, setShowCreateLeadModal] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
 
+  // Dialer states
+  const [device, setDevice] = useState(null)
+  const [deviceStatus, setDeviceStatus] = useState('offline')
+  const [activeCall, setActiveCall] = useState(null)
+  const [incomingCall, setIncomingCall] = useState(null)
+  const [callStatus, setCallStatus] = useState(null)
+  const [isMuted, setIsMuted] = useState(false)
+  const [showDialer, setShowDialer] = useState(false)
+
   const isAdmin = user.role === 'admin'
+
+  // Initialize Twilio Device
+  useEffect(() => {
+    const initDevice = async () => {
+      try {
+        const res = await api.get('/api/voice/token')
+        const twilioDevice = new Device(res.data.token, {
+          codecPreferences: ['opus', 'pcmu'],
+          enableRingingState: true
+        })
+
+        twilioDevice.on('registered', () => {
+          console.log('Twilio Device ready')
+          setDeviceStatus('ready')
+        })
+
+        twilioDevice.on('error', (error) => {
+          console.error('Twilio Device error:', error)
+          setDeviceStatus('error')
+        })
+
+        twilioDevice.on('incoming', (call) => {
+          console.log('Incoming call from:', call.parameters.From)
+          setIncomingCall(call)
+          setCallStatus('incoming')
+
+          call.on('cancel', () => {
+            setIncomingCall(null)
+            setCallStatus(null)
+          })
+
+          call.on('disconnect', () => {
+            setIncomingCall(null)
+            setActiveCall(null)
+            setCallStatus('ended')
+            setTimeout(() => setCallStatus(null), 2000)
+          })
+        })
+
+        twilioDevice.on('tokenWillExpire', async () => {
+          const newToken = await api.get('/api/voice/token')
+          twilioDevice.updateToken(newToken.data.token)
+        })
+
+        await twilioDevice.register()
+        setDevice(twilioDevice)
+      } catch (error) {
+        console.error('Error initializing Twilio device:', error)
+        setDeviceStatus('error')
+      }
+    }
+
+    initDevice()
+
+    return () => {
+      if (device) {
+        device.destroy()
+      }
+    }
+  }, [])
+
+  // Make outbound call
+  const makeCall = async (phoneNumber, leadId) => {
+    if (!device || deviceStatus !== 'ready') {
+      showToast('Teléfono no disponible', 'error')
+      return
+    }
+
+    try {
+      setCallStatus('calling')
+      const call = await device.connect({
+        params: {
+          To: phoneNumber,
+          leadId: leadId || ''
+        }
+      })
+
+      setActiveCall(call)
+
+      call.on('accept', () => {
+        setCallStatus('connected')
+      })
+
+      call.on('disconnect', () => {
+        setActiveCall(null)
+        setCallStatus('ended')
+        setTimeout(() => setCallStatus(null), 2000)
+      })
+
+      call.on('error', (error) => {
+        console.error('Call error:', error)
+        setActiveCall(null)
+        setCallStatus(null)
+        showToast('Error en la llamada', 'error')
+      })
+    } catch (error) {
+      console.error('Error making call:', error)
+      showToast('Error al llamar', 'error')
+    }
+  }
+
+  // Answer incoming call
+  const answerCall = () => {
+    if (incomingCall) {
+      incomingCall.accept()
+      setActiveCall(incomingCall)
+      setIncomingCall(null)
+      setCallStatus('connected')
+    }
+  }
+
+  // Reject incoming call
+  const rejectCall = () => {
+    if (incomingCall) {
+      incomingCall.reject()
+      setIncomingCall(null)
+      setCallStatus(null)
+    }
+  }
+
+  // Hang up call
+  const hangUp = () => {
+    if (activeCall) {
+      activeCall.disconnect()
+    }
+  }
+
+  // Toggle mute
+  const toggleMute = () => {
+    if (activeCall) {
+      if (isMuted) {
+        activeCall.mute(false)
+      } else {
+        activeCall.mute(true)
+      }
+      setIsMuted(!isMuted)
+    }
+  }
 
   // Show toast notification
   const showToast = (message, type = 'success') => {
@@ -1260,19 +1438,31 @@ function MainApp({ user, onLogout }) {
                     {/* Phone Actions */}
                     <div className="phone-actions">
                       {selectedLead.phone && (
-                        <a href={`tel:${selectedLead.phone}`} className="phone-btn">
-                          {t.call} {selectedLead.phone}
-                        </a>
+                        <button
+                          className="phone-btn"
+                          onClick={() => makeCall(selectedLead.phone, selectedLead.id)}
+                          disabled={deviceStatus !== 'ready' || callStatus}
+                        >
+                          📞 {t.call} {selectedLead.phone}
+                        </button>
                       )}
                       {selectedLead.phone2 && (
-                        <a href={`tel:${selectedLead.phone2}`} className="phone-btn">
-                          {t.call} {selectedLead.phone2}
-                        </a>
+                        <button
+                          className="phone-btn"
+                          onClick={() => makeCall(selectedLead.phone2, selectedLead.id)}
+                          disabled={deviceStatus !== 'ready' || callStatus}
+                        >
+                          📞 {t.call} {selectedLead.phone2}
+                        </button>
                       )}
                       {selectedLead.phone3 && (
-                        <a href={`tel:${selectedLead.phone3}`} className="phone-btn">
-                          {t.call} {selectedLead.phone3}
-                        </a>
+                        <button
+                          className="phone-btn"
+                          onClick={() => makeCall(selectedLead.phone3, selectedLead.id)}
+                          disabled={deviceStatus !== 'ready' || callStatus}
+                        >
+                          📞 {t.call} {selectedLead.phone3}
+                        </button>
                       )}
                     </div>
 
@@ -1485,6 +1675,55 @@ function MainApp({ user, onLogout }) {
           onDispatch={dispatchAppointment}
         />
       )}
+
+      {/* Incoming Call Notification */}
+      {incomingCall && (
+        <div className="incoming-call-overlay">
+          <div className="incoming-call-modal">
+            <div className="incoming-call-icon">📞</div>
+            <h3>{t.incomingCall}</h3>
+            <p>{t.callFrom}: {incomingCall.parameters?.From || 'Unknown'}</p>
+            <div className="incoming-call-actions">
+              <button className="btn btn-success btn-large" onClick={answerCall}>
+                {t.answer}
+              </button>
+              <button className="btn btn-danger btn-large" onClick={rejectCall}>
+                {t.hangUp}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Call Bar */}
+      {callStatus && callStatus !== 'incoming' && (
+        <div className={`call-bar ${callStatus}`}>
+          <div className="call-bar-status">
+            <span className="call-indicator"></span>
+            {callStatus === 'calling' && t.calling}
+            {callStatus === 'connected' && t.connected}
+            {callStatus === 'ended' && t.callEnded}
+          </div>
+          {callStatus === 'connected' && (
+            <div className="call-bar-actions">
+              <button className={`call-btn ${isMuted ? 'muted' : ''}`} onClick={toggleMute}>
+                {isMuted ? t.unmute : t.mute}
+              </button>
+              <button className="call-btn hangup" onClick={hangUp}>
+                {t.hangUp}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Phone Status Indicator */}
+      <div className={`phone-status ${deviceStatus}`}>
+        <span className="phone-icon">📱</span>
+        {deviceStatus === 'ready' && t.dialerReady}
+        {deviceStatus === 'offline' && t.dialerOffline}
+        {deviceStatus === 'error' && t.dialerOffline}
+      </div>
 
       {/* Toast */}
       {toast && <div className={`toast ${toast.type}`}>{toast.message}</div>}
