@@ -15,7 +15,178 @@ const DISPOSITIONS = [
   { value: 'disconnected', label: 'Disconnected', color: '#607d8b' }
 ]
 
+// API helper with auth
+const api = axios.create({ baseURL: API_URL })
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
 function App() {
+  const [user, setUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('user')
+    if (token && savedUser) {
+      setUser(JSON.parse(savedUser))
+    }
+    setIsLoading(false)
+  }, [])
+
+  const handleLogin = (userData, token) => {
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(userData))
+    setUser(userData)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setUser(null)
+  }
+
+  if (isLoading) {
+    return <div className="loading-screen"><div className="spinner"></div></div>
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  return <MainApp user={user} onLogout={handleLogout} />
+}
+
+// ==================== LOGIN PAGE ====================
+function LoginPage({ onLogin }) {
+  const [isRegister, setIsRegister] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    setLoading(true)
+
+    try {
+      if (isRegister) {
+        await axios.post(`${API_URL}/api/auth/register`, {
+          email, password, first_name: firstName, last_name: lastName
+        })
+        setSuccess('Registration successful! Please wait for admin approval.')
+        setIsRegister(false)
+        setEmail('')
+        setPassword('')
+        setFirstName('')
+        setLastName('')
+      } else {
+        const res = await axios.post(`${API_URL}/api/auth/login`, { email, password })
+        onLogin(res.data.user, res.data.token)
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'An error occurred')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-header">
+          <img src="/logo.png" alt="Patagon" className="login-logo" onError={(e) => { e.target.style.display = 'none' }} />
+          <h1>Patagon Dialer</h1>
+          <p>Lead Management System</p>
+        </div>
+
+        <form className="login-form" onSubmit={handleSubmit}>
+          {error && <div className="alert alert-error">{error}</div>}
+          {success && <div className="alert alert-success">{success}</div>}
+
+          {isRegister && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>First Name</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? 'Please wait...' : (isRegister ? 'Register' : 'Sign In')}
+          </button>
+        </form>
+
+        <div className="login-footer">
+          {isRegister ? (
+            <p>Already have an account? <button onClick={() => setIsRegister(false)}>Sign In</button></p>
+          ) : (
+            <p>Need an account? <button onClick={() => setIsRegister(true)}>Register</button></p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ==================== MAIN APP ====================
+function MainApp({ user, onLogout }) {
   const [currentView, setCurrentView] = useState('leads')
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
@@ -23,6 +194,9 @@ function App() {
   const [conversations, setConversations] = useState([])
   const [appointments, setAppointments] = useState([])
   const [salespeople, setSalespeople] = useState([])
+  const [users, setUsers] = useState([])
+  const [inboundAlerts, setInboundAlerts] = useState([])
+  const [alertCount, setAlertCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -36,10 +210,22 @@ function App() {
   const [showDispatchModal, setShowDispatchModal] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
 
+  const isAdmin = user.role === 'admin'
+
   // Show toast notification
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  // Fetch alert count
+  const fetchAlertCount = async () => {
+    try {
+      const res = await api.get('/api/inbound-alerts/count')
+      setAlertCount(res.data.count || 0)
+    } catch (error) {
+      console.error('Error fetching alert count:', error)
+    }
   }
 
   // Fetch leads
@@ -52,7 +238,7 @@ function App() {
         status: statusFilter,
         search: searchTerm
       })
-      const res = await axios.get(`${API_URL}/api/leads?${params}`)
+      const res = await api.get(`/api/leads?${params}`)
       setLeads(res.data.leads)
       setPagination({
         page: res.data.page,
@@ -69,7 +255,7 @@ function App() {
   // Fetch conversations for a lead
   const fetchConversations = async (leadId) => {
     try {
-      const res = await axios.get(`${API_URL}/api/leads/${leadId}/conversations`)
+      const res = await api.get(`/api/leads/${leadId}/conversations`)
       setConversations(res.data)
     } catch (error) {
       console.error('Error fetching conversations:', error)
@@ -79,7 +265,7 @@ function App() {
   // Fetch appointments
   const fetchAppointments = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/appointments`)
+      const res = await api.get('/api/appointments')
       setAppointments(res.data)
     } catch (error) {
       console.error('Error fetching appointments:', error)
@@ -89,23 +275,51 @@ function App() {
   // Fetch salespeople
   const fetchSalespeople = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/salespeople`)
+      const res = await api.get('/api/salespeople')
       setSalespeople(res.data)
     } catch (error) {
       console.error('Error fetching salespeople:', error)
     }
   }
 
+  // Fetch users (admin only)
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get('/api/users')
+      setUsers(res.data)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    }
+  }
+
+  // Fetch inbound alerts
+  const fetchInboundAlerts = async () => {
+    try {
+      const res = await api.get('/api/inbound-alerts?status=all')
+      setInboundAlerts(res.data)
+    } catch (error) {
+      console.error('Error fetching inbound alerts:', error)
+    }
+  }
+
   useEffect(() => {
     fetchLeads()
     fetchSalespeople()
+    fetchAlertCount()
+    // Poll for new alerts every 30 seconds
+    const interval = setInterval(fetchAlertCount, 30000)
+    return () => clearInterval(interval)
   }, [fetchLeads])
 
   useEffect(() => {
     if (currentView === 'appointments') {
       fetchAppointments()
+    } else if (currentView === 'users' && isAdmin) {
+      fetchUsers()
+    } else if (currentView === 'inbound') {
+      fetchInboundAlerts()
     }
-  }, [currentView])
+  }, [currentView, isAdmin])
 
   // Select a lead
   const selectLead = async (lead, index) => {
@@ -126,7 +340,7 @@ function App() {
   // Send SMS
   const sendSMS = async (message, phone) => {
     try {
-      await axios.post(`${API_URL}/api/leads/${selectedLead.id}/sms`, {
+      await api.post(`/api/leads/${selectedLead.id}/sms`, {
         message,
         to_phone: phone
       })
@@ -141,9 +355,8 @@ function App() {
   // Add note
   const addNote = async (note) => {
     try {
-      const res = await axios.post(`${API_URL}/api/leads/${selectedLead.id}/notes`, { note })
+      const res = await api.post(`/api/leads/${selectedLead.id}/notes`, { note })
       setSelectedLead(res.data)
-      // Update in leads list too
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
       showToast('Note added')
     } catch (error) {
@@ -155,12 +368,11 @@ function App() {
   // Add disposition
   const addDisposition = async (dispositionType, notes) => {
     try {
-      await axios.post(`${API_URL}/api/leads/${selectedLead.id}/dispositions`, {
+      await api.post(`/api/leads/${selectedLead.id}/dispositions`, {
         disposition_type: dispositionType,
         notes
       })
-      // Refresh lead data
-      const res = await axios.get(`${API_URL}/api/leads/${selectedLead.id}`)
+      const res = await api.get(`/api/leads/${selectedLead.id}`)
       setSelectedLead(res.data)
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
       setShowDispositionModal(false)
@@ -174,12 +386,11 @@ function App() {
   // Create appointment
   const createAppointment = async (appointmentData) => {
     try {
-      await axios.post(`${API_URL}/api/appointments`, {
+      await api.post('/api/appointments', {
         lead_id: selectedLead.id,
         ...appointmentData
       })
-      // Refresh lead data
-      const res = await axios.get(`${API_URL}/api/leads/${selectedLead.id}`)
+      const res = await api.get(`/api/leads/${selectedLead.id}`)
       setSelectedLead(res.data)
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
       setShowAppointmentModal(false)
@@ -193,7 +404,7 @@ function App() {
   // Dispatch appointment
   const dispatchAppointment = async (appointmentId, salespersonPhone) => {
     try {
-      await axios.post(`${API_URL}/api/appointments/${appointmentId}/dispatch`, {
+      await api.post(`/api/appointments/${appointmentId}/dispatch`, {
         salesperson_phone: salespersonPhone
       })
       await fetchAppointments()
@@ -211,7 +422,7 @@ function App() {
     formData.append('file', file)
 
     try {
-      const res = await axios.post(`${API_URL}/api/leads/upload`, formData, {
+      const res = await api.post('/api/leads/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       showToast(res.data.message)
@@ -219,7 +430,51 @@ function App() {
       fetchLeads()
     } catch (error) {
       console.error('Error uploading file:', error)
-      showToast('Failed to upload file', 'error')
+      showToast(error.response?.data?.error || 'Failed to upload file', 'error')
+    }
+  }
+
+  // Approve user
+  const approveUser = async (userId) => {
+    try {
+      await api.post(`/api/users/${userId}/approve`)
+      fetchUsers()
+      showToast('User approved')
+    } catch (error) {
+      showToast('Failed to approve user', 'error')
+    }
+  }
+
+  // Reject user
+  const rejectUser = async (userId) => {
+    try {
+      await api.post(`/api/users/${userId}/reject`)
+      fetchUsers()
+      showToast('User rejected')
+    } catch (error) {
+      showToast('Failed to reject user', 'error')
+    }
+  }
+
+  // Mark alert as read
+  const markAlertRead = async (alertId) => {
+    try {
+      await api.post(`/api/inbound-alerts/${alertId}/read`)
+      fetchInboundAlerts()
+      fetchAlertCount()
+    } catch (error) {
+      showToast('Failed to mark as read', 'error')
+    }
+  }
+
+  // Go to lead from alert
+  const goToLeadFromAlert = async (alert) => {
+    await markAlertRead(alert.id)
+    if (alert.leads) {
+      const res = await api.get(`/api/leads/${alert.lead_id}`)
+      setSelectedLead(res.data)
+      await fetchConversations(res.data.id)
+      setCurrentView('leadCard')
     }
   }
 
@@ -227,13 +482,22 @@ function App() {
     <div className="app">
       {/* Sidebar */}
       <aside className="sidebar">
-        <h1>Patagon Dialer</h1>
+        <div className="sidebar-header">
+          <img src="/logo.png" alt="Patagon" className="sidebar-logo" onError={(e) => { e.target.style.display = 'none' }} />
+          <h1>Patagon Dialer</h1>
+        </div>
         <nav>
           <button
             className={currentView === 'leads' || currentView === 'leadCard' ? 'active' : ''}
             onClick={() => { setCurrentView('leads'); setSelectedLead(null) }}
           >
             Leads
+          </button>
+          <button
+            className={currentView === 'inbound' ? 'active' : ''}
+            onClick={() => setCurrentView('inbound')}
+          >
+            Inbound SMS {alertCount > 0 && <span className="badge">{alertCount}</span>}
           </button>
           <button
             className={currentView === 'appointments' ? 'active' : ''}
@@ -247,7 +511,22 @@ function App() {
           >
             Salespeople
           </button>
+          {isAdmin && (
+            <button
+              className={currentView === 'users' ? 'active' : ''}
+              onClick={() => setCurrentView('users')}
+            >
+              User Management
+            </button>
+          )}
         </nav>
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <span>{user.first_name} {user.last_name}</span>
+            <small>{user.role}</small>
+          </div>
+          <button className="logout-btn" onClick={onLogout}>Logout</button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -266,9 +545,11 @@ function App() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
                 />
-                <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-                  Upload Excel
-                </button>
+                {isAdmin && (
+                  <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+                    Upload Excel
+                  </button>
+                )}
               </div>
             </header>
 
@@ -291,7 +572,7 @@ function App() {
               ) : leads.length === 0 ? (
                 <div className="empty-state">
                   <h3>No leads found</h3>
-                  <p>Upload an Excel file to get started</p>
+                  <p>{isAdmin ? 'Upload an Excel file to get started' : 'No leads available'}</p>
                 </div>
               ) : (
                 <div className="lead-list">
@@ -451,6 +732,44 @@ function App() {
           </>
         )}
 
+        {/* Inbound SMS View */}
+        {currentView === 'inbound' && (
+          <>
+            <header className="header">
+              <h2>Inbound SMS Alerts</h2>
+            </header>
+
+            <div className="content">
+              {inboundAlerts.length === 0 ? (
+                <div className="empty-state">
+                  <h3>No inbound messages</h3>
+                  <p>When customers reply to your SMS, they will appear here</p>
+                </div>
+              ) : (
+                <div className="inbound-list">
+                  {inboundAlerts.map(alert => (
+                    <div
+                      key={alert.id}
+                      className={`inbound-item ${alert.status === 'unread' ? 'unread' : ''}`}
+                      onClick={() => goToLeadFromAlert(alert)}
+                    >
+                      <div className="inbound-info">
+                        <h4>{alert.leads?.first_name} {alert.leads?.last_name}</h4>
+                        <p className="inbound-phone">{alert.phone}</p>
+                        <p className="inbound-message">{alert.message}</p>
+                        <small>{new Date(alert.created_at).toLocaleString()}</small>
+                      </div>
+                      <div className="inbound-status">
+                        <span className={`status-badge status-${alert.status}`}>{alert.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Appointments View */}
         {currentView === 'appointments' && (
           <>
@@ -497,9 +816,6 @@ function App() {
           <>
             <header className="header">
               <h2>Salespeople</h2>
-              <button className="btn btn-primary" onClick={() => {/* Add salesperson modal */}}>
-                Add Salesperson
-              </button>
             </header>
 
             <div className="content">
@@ -507,7 +823,58 @@ function App() {
                 salespeople={salespeople}
                 onRefresh={fetchSalespeople}
                 showToast={showToast}
+                isAdmin={isAdmin}
               />
+            </div>
+          </>
+        )}
+
+        {/* User Management View (Admin Only) */}
+        {currentView === 'users' && isAdmin && (
+          <>
+            <header className="header">
+              <h2>User Management</h2>
+            </header>
+
+            <div className="content">
+              <div className="users-list">
+                <div className="lead-list-header" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 150px' }}>
+                  <span>Name</span>
+                  <span>Email</span>
+                  <span>Role</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
+                {users.map(u => (
+                  <div key={u.id} className="lead-item" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 150px' }}>
+                    <span>{u.first_name} {u.last_name}</span>
+                    <span>{u.email}</span>
+                    <span className={`status-badge ${u.role === 'admin' ? 'status-appointment' : 'status-new'}`}>
+                      {u.role}
+                    </span>
+                    <span className={`status-badge status-${u.status === 'approved' ? 'appointment' : u.status === 'pending' ? 'callback' : 'closed'}`}>
+                      {u.status}
+                    </span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {u.status === 'pending' && (
+                        <>
+                          <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
+                            Approve
+                          </button>
+                          <button className="btn btn-danger btn-small" onClick={() => rejectUser(u.id)}>
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {u.status === 'rejected' && (
+                        <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
+                          Approve
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
@@ -529,7 +896,7 @@ function App() {
         />
       )}
 
-      {showUploadModal && (
+      {showUploadModal && isAdmin && (
         <UploadModal
           onClose={() => setShowUploadModal(false)}
           onUpload={uploadFile}
@@ -550,6 +917,8 @@ function App() {
     </div>
   )
 }
+
+// ==================== COMPONENTS ====================
 
 // Notes Section Component
 function NotesSection({ lead, onAddNote }) {
@@ -873,7 +1242,7 @@ Notes: ${appointment.notes || 'N/A'}`}
 }
 
 // Salespeople Manager Component
-function SalespeopleManager({ salespeople, onRefresh, showToast }) {
+function SalespeopleManager({ salespeople, onRefresh, showToast, isAdmin }) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -883,7 +1252,7 @@ function SalespeopleManager({ salespeople, onRefresh, showToast }) {
     if (!name.trim()) return
     setAdding(true)
     try {
-      await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/salespeople`, {
+      await api.post('/api/salespeople', {
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim()
@@ -901,40 +1270,42 @@ function SalespeopleManager({ salespeople, onRefresh, showToast }) {
 
   return (
     <div>
-      <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 24 }}>
-        <h3 style={{ marginBottom: 16 }}>Add New Salesperson</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          <input
-            type="text"
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
-          />
-          <input
-            type="tel"
-            placeholder="Phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
-          />
+      {isAdmin && (
+        <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ marginBottom: 16 }}>Add New Salesperson</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <input
+              type="text"
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
+            />
+            <input
+              type="tel"
+              placeholder="Phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
+            />
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 16 }}
+            disabled={!name.trim() || adding}
+            onClick={handleAdd}
+          >
+            {adding ? 'Adding...' : 'Add Salesperson'}
+          </button>
         </div>
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 16 }}
-          disabled={!name.trim() || adding}
-          onClick={handleAdd}
-        >
-          {adding ? 'Adding...' : 'Add Salesperson'}
-        </button>
-      </div>
+      )}
 
       <div className="lead-list">
         <div className="lead-list-header" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>

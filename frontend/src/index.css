@@ -751,3 +751,266 @@ body {
     opacity: 1;
   }
 }
+
+/* Login Page */
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #f5f7fa;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+  padding: 20px;
+}
+
+.login-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+}
+
+.login-header {
+  text-align: center;
+  padding: 40px 40px 20px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%);
+  color: white;
+}
+
+.login-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: white;
+  padding: 8px;
+}
+
+.login-header h1 {
+  font-size: 1.75rem;
+  margin-bottom: 8px;
+  color: #4fc3f7;
+}
+
+.login-header p {
+  color: #a0a0b0;
+  font-size: 0.95rem;
+}
+
+.login-form {
+  padding: 30px 40px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.alert-error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.alert-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.btn-block {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 1rem;
+}
+
+.login-footer {
+  padding: 20px 40px 30px;
+  text-align: center;
+  border-top: 1px solid #eee;
+}
+
+.login-footer p {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.login-footer button {
+  background: none;
+  border: none;
+  color: #4fc3f7;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.login-footer button:hover {
+  text-decoration: underline;
+}
+
+/* Sidebar Updates */
+.sidebar-header {
+  margin-bottom: 30px;
+}
+
+.sidebar-logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: white;
+  padding: 4px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.user-info {
+  margin-bottom: 12px;
+}
+
+.user-info span {
+  display: block;
+  font-weight: 500;
+  color: #fff;
+}
+
+.user-info small {
+  color: #a0a0b0;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* Badge for alerts */
+.badge {
+  background: #ef5350;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+
+/* Inbound SMS List */
+.inbound-list {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.inbound-item {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.inbound-item:hover {
+  background: #f8f9fa;
+}
+
+.inbound-item:last-child {
+  border-bottom: none;
+}
+
+.inbound-item.unread {
+  background: #fff8e1;
+  border-left: 4px solid #ffc107;
+}
+
+.inbound-item.unread:hover {
+  background: #fff3cd;
+}
+
+.inbound-info h4 {
+  margin-bottom: 4px;
+  color: #1a1a2e;
+}
+
+.inbound-phone {
+  color: #4fc3f7;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.inbound-message {
+  background: #f0f0f0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  max-width: 400px;
+}
+
+.inbound-info small {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.inbound-status {
+  min-width: 80px;
+  text-align: right;
+}
+
+/* Users list */
+.users-list {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Status for unread */
+.status-unread {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.status-read {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-follow_up {
+  background: #e3f2fd;
+  color: #1976d2;
+}

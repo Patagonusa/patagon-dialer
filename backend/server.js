@@ -3,11 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const XLSX = require('xlsx');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'patagon-dialer-secret-key-2025';
 
 // Middleware
 app.use(cors());
@@ -30,10 +33,337 @@ const TWILIO_PHONE = process.env.TWILIO_PHONE;
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// ==================== AUTH HELPERS ====================
+
+function hashPassword(password, salt = null) {
+  salt = salt || crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password, hash, salt) {
+  const { hash: newHash } = hashPassword(password, salt);
+  return hash === newHash;
+}
+
+function generateToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+}
+
+// Auth middleware
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+// Admin middleware
+function adminMiddleware(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+}
+
+// ==================== AUTH ENDPOINTS ====================
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    if (user.status !== 'approved') {
+      return res.status(403).json({ error: 'Account pending approval' });
+    }
+
+    if (!verifyPassword(password, user.password_hash, user.password_salt)) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Update last login
+    await supabase
+      .from('users')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', user.id);
+
+    const token = generateToken(user);
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register (requires admin approval)
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, first_name, last_name } = req.body;
+
+    // Check if user exists
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (existing) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    const { salt, hash } = hashPassword(password);
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email: email.toLowerCase(),
+        password_hash: hash,
+        password_salt: salt,
+        first_name,
+        last_name,
+        role: 'user',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: 'Registration successful. Please wait for admin approval.' });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get current user
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, role, status, created_at')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) throw error;
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== USER MANAGEMENT (Admin Only) ====================
+
+// Get all users
+app.get('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, role, status, created_at, last_login')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve user
+app.post('/api/users/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: 'User approved', user: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reject/Disable user
+app.post('/api/users/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ status: 'rejected', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: 'User rejected', user: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user role
+app.put('/api/users/:id/role', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== INBOUND ALERTS ENDPOINTS ====================
+
+// Get all inbound alerts (unread messages)
+app.get('/api/inbound-alerts', authMiddleware, async (req, res) => {
+  try {
+    const { status = 'unread' } = req.query;
+
+    let query = supabase
+      .from('inbound_alerts')
+      .select(`
+        *,
+        leads (id, first_name, last_name, phone, status)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark alert as read
+app.post('/api/inbound-alerts/:id/read', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('inbound_alerts')
+      .update({
+        status: 'read',
+        read_at: new Date().toISOString(),
+        assigned_to: req.user.id
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set follow-up time for alert
+app.post('/api/inbound-alerts/:id/follow-up', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { follow_up_at } = req.body;
+
+    const { data, error } = await supabase
+      .from('inbound_alerts')
+      .update({
+        follow_up_at,
+        status: 'follow_up',
+        assigned_to: req.user.id
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get count of unread alerts
+app.get('/api/inbound-alerts/count', authMiddleware, async (req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from('inbound_alerts')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'unread');
+
+    if (error) throw error;
+
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== LEADS ENDPOINTS ====================
 
 // Get all leads with optional filters
-app.get('/api/leads', async (req, res) => {
+app.get('/api/leads', authMiddleware, async (req, res) => {
   try {
     const { status, search, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
@@ -69,7 +399,7 @@ app.get('/api/leads', async (req, res) => {
 });
 
 // Get single lead by ID
-app.get('/api/leads/:id', async (req, res) => {
+app.get('/api/leads/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -89,7 +419,7 @@ app.get('/api/leads/:id', async (req, res) => {
 });
 
 // Update lead
-app.put('/api/leads/:id', async (req, res) => {
+app.put('/api/leads/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
@@ -111,7 +441,7 @@ app.put('/api/leads/:id', async (req, res) => {
 });
 
 // Add note to lead
-app.post('/api/leads/:id/notes', async (req, res) => {
+app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { note } = req.body;
@@ -126,7 +456,8 @@ app.post('/api/leads/:id/notes', async (req, res) => {
     if (fetchError) throw fetchError;
 
     const timestamp = new Date().toISOString();
-    const newNote = `[${timestamp}] ${note}`;
+    const userName = `${req.user.email}`;
+    const newNote = `[${timestamp} - ${userName}] ${note}`;
     const updatedNotes = lead.notes ? `${lead.notes}\n${newNote}` : newNote;
 
     const { data, error } = await supabase
@@ -145,8 +476,8 @@ app.post('/api/leads/:id/notes', async (req, res) => {
   }
 });
 
-// Upload Excel file
-app.post('/api/leads/upload', upload.single('file'), async (req, res) => {
+// Upload Excel file (Admin Only)
+app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -202,7 +533,7 @@ app.post('/api/leads/upload', upload.single('file'), async (req, res) => {
 // ==================== CONVERSATIONS ENDPOINTS ====================
 
 // Get conversations for a lead
-app.get('/api/leads/:id/conversations', async (req, res) => {
+app.get('/api/leads/:id/conversations', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -222,7 +553,7 @@ app.get('/api/leads/:id/conversations', async (req, res) => {
 });
 
 // Send SMS
-app.post('/api/leads/:id/sms', async (req, res) => {
+app.post('/api/leads/:id/sms', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { message, to_phone } = req.body;
@@ -266,12 +597,13 @@ app.post('/api/webhook/sms', express.urlencoded({ extended: true }), async (req,
     // Find lead by phone number
     const { data: lead } = await supabase
       .from('leads')
-      .select('id')
+      .select('id, first_name, last_name')
       .or(`phone.eq.${From},phone2.eq.${From},phone3.eq.${From}`)
       .single();
 
     if (lead) {
-      await supabase
+      // Save conversation
+      const { data: conversation } = await supabase
         .from('conversations')
         .insert({
           lead_id: lead.id,
@@ -280,6 +612,20 @@ app.post('/api/webhook/sms', express.urlencoded({ extended: true }), async (req,
           phone: From,
           twilio_sid: MessageSid,
           status: 'received',
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      // Create inbound alert for follow-up tracking
+      await supabase
+        .from('inbound_alerts')
+        .insert({
+          lead_id: lead.id,
+          conversation_id: conversation.id,
+          message: Body,
+          phone: From,
+          status: 'unread',
           created_at: new Date().toISOString()
         });
     }
@@ -294,7 +640,7 @@ app.post('/api/webhook/sms', express.urlencoded({ extended: true }), async (req,
 // ==================== DISPOSITIONS ENDPOINTS ====================
 
 // Get dispositions for a lead
-app.get('/api/leads/:id/dispositions', async (req, res) => {
+app.get('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -314,7 +660,7 @@ app.get('/api/leads/:id/dispositions', async (req, res) => {
 });
 
 // Add disposition
-app.post('/api/leads/:id/dispositions', async (req, res) => {
+app.post('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { disposition_type, notes } = req.body;
@@ -359,7 +705,7 @@ app.post('/api/leads/:id/dispositions', async (req, res) => {
 // ==================== APPOINTMENTS ENDPOINTS ====================
 
 // Get all appointments
-app.get('/api/appointments', async (req, res) => {
+app.get('/api/appointments', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('appointments')
@@ -379,7 +725,7 @@ app.get('/api/appointments', async (req, res) => {
 });
 
 // Create appointment
-app.post('/api/appointments', async (req, res) => {
+app.post('/api/appointments', authMiddleware, async (req, res) => {
   try {
     const {
       lead_id,
@@ -419,7 +765,7 @@ app.post('/api/appointments', async (req, res) => {
 });
 
 // Dispatch appointment (send to salesperson via SMS)
-app.post('/api/appointments/:id/dispatch', async (req, res) => {
+app.post('/api/appointments/:id/dispatch', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { salesperson_phone } = req.body;
@@ -473,7 +819,7 @@ app.post('/api/appointments/:id/dispatch', async (req, res) => {
 // ==================== SALESPEOPLE ENDPOINTS ====================
 
 // Get all salespeople
-app.get('/api/salespeople', async (req, res) => {
+app.get('/api/salespeople', authMiddleware, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('salespeople')
@@ -489,8 +835,8 @@ app.get('/api/salespeople', async (req, res) => {
   }
 });
 
-// Add salesperson
-app.post('/api/salespeople', async (req, res) => {
+// Add salesperson (Admin Only)
+app.post('/api/salespeople', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { name, phone, email } = req.body;
 
