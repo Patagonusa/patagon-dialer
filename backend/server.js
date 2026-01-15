@@ -704,42 +704,92 @@ app.get('/api/leads/:id/calls', authMiddleware, async (req, res) => {
   }
 });
 
-// Twilio webhook for call status (recording)
+// Twilio webhook for call status
 app.post('/api/webhook/call-status', express.urlencoded({ extended: true }), async (req, res) => {
   try {
-    const {
-      CallSid,
-      CallStatus,
-      CallDuration,
-      RecordingUrl,
-      RecordingSid,
-      From,
-      To,
-      Direction
-    } = req.body;
+    const { CallSid, CallStatus, CallDuration } = req.body;
+    console.log('Call status webhook:', req.body);
 
-    console.log('Call status webhook:', { CallSid, CallStatus, CallDuration, RecordingUrl });
-
-    // Update call record with recording URL and duration
-    if (CallSid) {
+    if (CallSid && CallStatus) {
       const { error } = await supabase
         .from('calls')
         .update({
           duration: parseInt(CallDuration) || 0,
-          recording_url: RecordingUrl ? `${RecordingUrl}.mp3` : null,
-          recording_sid: RecordingSid,
           status: CallStatus,
           updated_at: new Date().toISOString()
         })
         .eq('twilio_sid', CallSid);
 
-      if (error) console.error('Error updating call:', error);
+      if (error) console.error('Error updating call status:', error);
     }
 
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error processing call status:', error);
     res.status(200).send('OK');
+  }
+});
+
+// Twilio webhook for recording completed
+app.post('/api/webhook/recording', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    const { CallSid, RecordingUrl, RecordingSid, RecordingDuration, RecordingStatus } = req.body;
+    console.log('Recording webhook:', { CallSid, RecordingUrl, RecordingSid, RecordingDuration, RecordingStatus });
+
+    if (CallSid && RecordingUrl) {
+      // Twilio recording URL - add .mp3 for direct playback
+      const recordingUrlMp3 = `${RecordingUrl}.mp3`;
+
+      const { error } = await supabase
+        .from('calls')
+        .update({
+          recording_url: recordingUrlMp3,
+          recording_sid: RecordingSid,
+          recording_duration: parseInt(RecordingDuration) || 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('twilio_sid', CallSid);
+
+      if (error) console.error('Error updating recording:', error);
+      else console.log('Recording saved for call:', CallSid);
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error processing recording:', error);
+    res.status(200).send('OK');
+  }
+});
+
+// Twilio webhook for call complete (action URL)
+app.post('/api/webhook/call-complete', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    const { CallSid, DialCallStatus, DialCallDuration } = req.body;
+    console.log('Call complete webhook:', { CallSid, DialCallStatus, DialCallDuration });
+
+    if (CallSid) {
+      const { error } = await supabase
+        .from('calls')
+        .update({
+          status: DialCallStatus || 'completed',
+          duration: parseInt(DialCallDuration) || 0,
+          ended_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('twilio_sid', CallSid);
+
+      if (error) console.error('Error updating call complete:', error);
+    }
+
+    // Return empty TwiML to end the call cleanly
+    const twiml = new twilio.twiml.VoiceResponse();
+    res.type('text/xml');
+    res.send(twiml.toString());
+  } catch (error) {
+    console.error('Error processing call complete:', error);
+    const twiml = new twilio.twiml.VoiceResponse();
+    res.type('text/xml');
+    res.send(twiml.toString());
   }
 });
 
@@ -790,7 +840,7 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
       twiml.record({
         maxLength: 120,
         transcribe: false,
-        recordingStatusCallback: '/api/webhook/call-status'
+        recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/recording'
       });
     } else {
       twiml.say({ language: 'es-MX' }, 'Por favor espere mientras lo conectamos.');
@@ -799,7 +849,9 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
       const dial = twiml.dial({
         timeout: 30,
         record: 'record-from-answer',
-        recordingStatusCallback: '/api/webhook/call-status'
+        recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/recording',
+        recordingStatusCallbackEvent: 'completed',
+        action: 'https://patagon-dialer-api.onrender.com/api/webhook/call-complete'
       });
 
       // Ring all online browser clients
@@ -1272,19 +1324,36 @@ setInterval(() => {
 }, 60000); // Check every minute
 
 // TwiML for outbound calls from browser
-app.post('/api/voice/outbound', express.urlencoded({ extended: true }), (req, res) => {
-  const { To, leadId } = req.body;
+app.post('/api/voice/outbound', express.urlencoded({ extended: true }), async (req, res) => {
+  const { To, leadId, CallSid, From, Caller } = req.body;
 
-  console.log('Outbound call request:', { To, leadId });
+  console.log('Outbound call request:', { To, leadId, CallSid, From, Caller });
+
+  // Save call record
+  try {
+    await supabase.from('calls').insert({
+      lead_id: leadId || null,
+      direction: 'outbound',
+      from_number: TWILIO_PHONE,
+      to_number: To,
+      twilio_sid: CallSid,
+      status: 'initiated',
+      created_at: new Date().toISOString()
+    });
+    console.log('Call record saved:', CallSid);
+  } catch (error) {
+    console.error('Error saving call record:', error);
+  }
 
   const twiml = new twilio.twiml.VoiceResponse();
 
-  // Dial the number
+  // Dial the number with recording
   const dial = twiml.dial({
     callerId: TWILIO_PHONE,
     record: 'record-from-answer',
-    recordingStatusCallback: '/api/webhook/call-status',
-    recordingStatusCallbackEvent: 'completed'
+    recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/recording',
+    recordingStatusCallbackEvent: 'completed',
+    action: 'https://patagon-dialer-api.onrender.com/api/webhook/call-complete'
   });
 
   dial.number(To);
