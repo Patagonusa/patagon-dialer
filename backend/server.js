@@ -858,6 +858,41 @@ app.post('/api/leads/:id/sms', authMiddleware, async (req, res) => {
   }
 });
 
+// Send SMS to any number (Quick SMS)
+app.post('/api/sms/send', authMiddleware, async (req, res) => {
+  try {
+    const { to, message } = req.body;
+
+    if (!to || !message) {
+      return res.status(400).json({ error: 'Phone number and message are required' });
+    }
+
+    // Format phone number
+    let formattedPhone = to.replace(/\D/g, '');
+    if (formattedPhone.length === 10) {
+      formattedPhone = `+1${formattedPhone}`;
+    } else if (formattedPhone.length === 11 && formattedPhone.startsWith('1')) {
+      formattedPhone = `+${formattedPhone}`;
+    } else if (!to.startsWith('+')) {
+      formattedPhone = `+${formattedPhone}`;
+    } else {
+      formattedPhone = to;
+    }
+
+    // Send via Twilio
+    const twilioMessage = await twilioClient.messages.create({
+      body: message,
+      from: TWILIO_PHONE,
+      to: formattedPhone
+    });
+
+    res.json({ success: true, sid: twilioMessage.sid });
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Twilio webhook for incoming SMS
 app.post('/api/webhook/sms', express.urlencoded({ extended: true }), async (req, res) => {
   try {

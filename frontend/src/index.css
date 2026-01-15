@@ -1494,3 +1494,59 @@ body {
   background: #9CA3AF;
   cursor: not-allowed;
 }
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quick-btn {
+  flex: 1;
+  padding: 12px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ice-blue);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.quick-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--light-azure);
+}
+
+.quick-btn.sms {
+  border-color: var(--sky-blue);
+}
+
+.quick-btn.sms:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.quick-btn.call {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.quick-btn.call.ready {
+  border-color: #059669;
+}
+
+.quick-btn.call.ready:hover {
+  background: rgba(5, 150, 105, 0.2);
+}
+
+.quick-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

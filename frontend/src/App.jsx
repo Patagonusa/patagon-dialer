@@ -706,6 +706,8 @@ function MainApp({ user, onLogout }) {
   const [callStatus, setCallStatus] = useState(null)
   const [isMuted, setIsMuted] = useState(false)
   const [showDialer, setShowDialer] = useState(false)
+  const [showQuickSMS, setShowQuickSMS] = useState(false)
+  const [showQuickCall, setShowQuickCall] = useState(false)
 
   const isAdmin = user.role === 'admin'
 
@@ -1148,6 +1150,28 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Send quick SMS to any number
+  const sendQuickSMS = async (phone, message) => {
+    try {
+      await api.post('/api/sms/send', { to: phone, message })
+      showToast(t.messageSent)
+      setShowQuickSMS(false)
+    } catch (error) {
+      console.error('Error sending SMS:', error)
+      showToast(t.errorSending, 'error')
+    }
+  }
+
+  // Quick call to any number
+  const quickCall = (phone) => {
+    if (device && deviceStatus === 'ready') {
+      makeCall(phone, null)
+      setShowQuickCall(false)
+    } else {
+      showToast(t.dialerOffline, 'error')
+    }
+  }
+
   return (
     <div className="app">
       {/* Sidebar */}
@@ -1191,6 +1215,20 @@ function MainApp({ user, onLogout }) {
             </button>
           )}
         </nav>
+        {/* Quick Actions */}
+        <div className="quick-actions">
+          <button className="quick-btn sms" onClick={() => setShowQuickSMS(true)}>
+            💬 SMS
+          </button>
+          <button
+            className={`quick-btn call ${deviceStatus === 'ready' ? 'ready' : ''}`}
+            onClick={() => setShowQuickCall(true)}
+            disabled={deviceStatus !== 'ready'}
+          >
+            📞 {t.call}
+          </button>
+        </div>
+
         <div className="sidebar-footer">
           <div className="user-info">
             <span>{user.first_name} {user.last_name}</span>
@@ -1676,6 +1714,23 @@ function MainApp({ user, onLogout }) {
         />
       )}
 
+      {/* Quick SMS Modal */}
+      {showQuickSMS && (
+        <QuickSMSModal
+          onClose={() => setShowQuickSMS(false)}
+          onSend={sendQuickSMS}
+        />
+      )}
+
+      {/* Quick Call Modal */}
+      {showQuickCall && (
+        <QuickCallModal
+          onClose={() => setShowQuickCall(false)}
+          onCall={quickCall}
+          deviceStatus={deviceStatus}
+        />
+      )}
+
       {/* Incoming Call Notification */}
       {incomingCall && (
         <div className="incoming-call-overlay">
@@ -1862,6 +1917,7 @@ function ConversationPanel({ lead, conversations, onSendSMS }) {
 
 // Disposition Modal Component
 function DispositionModal({ onClose, onSave }) {
+  const { t, DISPOSITIONS } = useTranslation()
   const [selected, setSelected] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -1869,7 +1925,7 @@ function DispositionModal({ onClose, onSave }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Agregar Disposición</h3>
+          <h3>{t.addDisposition}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
@@ -1885,23 +1941,23 @@ function DispositionModal({ onClose, onSave }) {
             ))}
           </div>
           <div className="form-group">
-            <label>Notas (opcional)</label>
+            <label>{t.notesOptional}</label>
             <textarea
               rows="3"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Agregar notas adicionales..."
+              placeholder={t.additionalNotes}
             />
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
           <button
             className="btn btn-primary"
             disabled={!selected}
             onClick={() => onSave(selected, notes)}
           >
-            Guardar Disposición
+            {t.saveDisposition}
           </button>
         </div>
       </div>
@@ -2258,6 +2314,111 @@ Notas: ${appointment.notes || 'N/A'}`}
             onClick={() => onDispatch(appointment.id, salespersonPhone || selectedSalesperson?.phone)}
           >
             Enviar a Vendedor
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Quick SMS Modal Component
+function QuickSMSModal({ onClose, onSend }) {
+  const { t } = useTranslation()
+  const [phone, setPhone] = useState('')
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const handleSend = async () => {
+    if (!phone.trim() || !message.trim()) return
+    setSending(true)
+    await onSend(phone.trim(), message.trim())
+    setSending(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>SMS</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>{t.phone} *</label>
+            <input
+              type="tel"
+              placeholder="+1234567890"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label>{t.writeMessage} *</label>
+            <textarea
+              rows="4"
+              placeholder={t.writeMessage}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!phone.trim() || !message.trim() || sending}
+            onClick={handleSend}
+          >
+            {sending ? t.pleaseWait : t.send}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Quick Call Modal Component
+function QuickCallModal({ onClose, onCall, deviceStatus }) {
+  const { t } = useTranslation()
+  const [phone, setPhone] = useState('')
+
+  const handleCall = () => {
+    if (!phone.trim()) return
+    onCall(phone.trim())
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.call}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          {deviceStatus !== 'ready' && (
+            <div className="alert alert-error" style={{ marginBottom: 16 }}>
+              {t.dialerOffline}
+            </div>
+          )}
+          <div className="form-group">
+            <label>{t.phone} *</label>
+            <input
+              type="tel"
+              placeholder="+1234567890"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCall()}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-success"
+            disabled={!phone.trim() || deviceStatus !== 'ready'}
+            onClick={handleCall}
+          >
+            {t.call}
           </button>
         </div>
       </div>
