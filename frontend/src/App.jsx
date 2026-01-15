@@ -116,7 +116,7 @@ function LoginPage({ onLogin }) {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <img src="/logo.svg" alt="Patagon" className="login-logo" />
+          <img src="/logo.png" alt="Patagon" className="login-logo" />
           <h1>Patagon Dialer</h1>
           <p>Lead Management System</p>
         </div>
@@ -483,7 +483,7 @@ function MainApp({ user, onLogout }) {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <img src="/logo.svg" alt="Patagon" className="sidebar-logo" />
+          <img src="/logo.png" alt="Patagon" className="sidebar-logo" />
           <h1>Patagon Dialer</h1>
         </div>
         <nav>
