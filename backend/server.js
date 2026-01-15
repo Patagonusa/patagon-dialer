@@ -488,6 +488,30 @@ function getColumnValue(row, possibleNames) {
   return '';
 }
 
+// Convert Excel serial date to JS Date
+function parseExcelDate(value) {
+  if (!value) return null;
+
+  // If it's a number (Excel serial date)
+  if (typeof value === 'number') {
+    // Excel serial date: days since 1900-01-01 (with a bug for 1900 leap year)
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+    return date.toISOString().split('T')[0];
+  }
+
+  // If it's already a string date, try to parse it
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+    return value; // Return as-is if can't parse
+  }
+
+  return null;
+}
+
 // Upload Excel/CSV file (Admin Only)
 app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
   try {
@@ -537,7 +561,7 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
         phone2: formatPhone(String(getColumnValue(row, ['Phone2', 'Phone 2', 'Telefono2', 'Alt Phone', 'Secondary Phone']) || '')),
         phone3: formatPhone(String(getColumnValue(row, ['Phone3', 'Phone 3', 'Telefono3', 'Third Phone']) || '')),
         job_group: String(getColumnValue(row, ['Job Group', 'JobGroup', 'Group', 'Grupo', 'Category', 'Type']) || '').substring(0, 100),
-        lead_date: getColumnValue(row, ['Date', 'Lead Date', 'Fecha', 'Created', 'Created Date']) || null,
+        lead_date: parseExcelDate(getColumnValue(row, ['Date', 'Lead Date', 'Fecha', 'Created', 'Created Date'])),
         source: String(getColumnValue(row, ['Source', 'Fuente', 'Lead Source', 'Origin', 'Campaign']) || '').substring(0, 100),
         status: 'new',
         created_at: new Date().toISOString(),
