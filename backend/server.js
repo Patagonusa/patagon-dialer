@@ -365,21 +365,42 @@ app.get('/api/inbound-alerts/count', authMiddleware, async (req, res) => {
 // Get all leads with optional filters
 app.get('/api/leads', authMiddleware, async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 50 } = req.query;
+    const {
+      status,
+      disposition,
+      search,
+      date,
+      sort = 'created_at',
+      order = 'desc',
+      page = 1,
+      limit = 50
+    } = req.query;
     const offset = (page - 1) * limit;
 
     let query = supabase
       .from('leads')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order(sort, { ascending: order === 'asc' })
       .range(offset, offset + limit - 1);
 
+    // Status filter
     if (status && status !== 'all') {
       query = query.eq('status', status);
     }
 
+    // Disposition filter (last disposition)
+    if (disposition && disposition !== 'all') {
+      query = query.eq('last_disposition', disposition);
+    }
+
+    // Date filter (lead_date)
+    if (date) {
+      query = query.eq('lead_date', date);
+    }
+
+    // Search filter
     if (search) {
-      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%`);
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,address.ilike.%${search}%`);
     }
 
     const { data, error, count } = await query;
@@ -596,6 +617,118 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
   } catch (error) {
     console.error('Error uploading file:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== CALLS ENDPOINTS ====================
+
+// Get call history for a lead
+app.get('/api/leads/:id/calls', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('calls')
+      .select('*')
+      .eq('lead_id', id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching call history:', error);
+    res.json([]); // Return empty array if table doesn't exist yet
+  }
+});
+
+// Twilio webhook for call status (recording)
+app.post('/api/webhook/call-status', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    const {
+      CallSid,
+      CallStatus,
+      CallDuration,
+      RecordingUrl,
+      RecordingSid,
+      From,
+      To,
+      Direction
+    } = req.body;
+
+    console.log('Call status webhook:', { CallSid, CallStatus, CallDuration, RecordingUrl });
+
+    // Update call record with recording URL and duration
+    if (CallSid) {
+      const { error } = await supabase
+        .from('calls')
+        .update({
+          duration: parseInt(CallDuration) || 0,
+          recording_url: RecordingUrl ? `${RecordingUrl}.mp3` : null,
+          recording_sid: RecordingSid,
+          status: CallStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('twilio_sid', CallSid);
+
+      if (error) console.error('Error updating call:', error);
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error processing call status:', error);
+    res.status(200).send('OK');
+  }
+});
+
+// Twilio webhook for incoming calls
+app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    const { From, To, CallSid } = req.body;
+
+    console.log('Incoming call:', { From, To, CallSid });
+
+    // Find lead by phone number
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('id, first_name, last_name')
+      .or(`phone.eq.${From},phone2.eq.${From},phone3.eq.${From}`)
+      .single();
+
+    // Create call record
+    if (lead) {
+      await supabase.from('calls').insert({
+        lead_id: lead.id,
+        direction: 'inbound',
+        phone: From,
+        twilio_sid: CallSid,
+        status: 'ringing',
+        created_at: new Date().toISOString()
+      });
+
+      // Create inbound alert
+      await supabase.from('inbound_alerts').insert({
+        lead_id: lead.id,
+        phone: From,
+        message: `Llamada entrante de ${lead.first_name} ${lead.last_name}`,
+        status: 'unread',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    // TwiML response - you can customize this
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="es-MX">Gracias por llamar a Patagon. Por favor espere mientras lo conectamos.</Say>
+  <Record maxLength="300" action="/api/webhook/call-status" recordingStatusCallback="/api/webhook/call-status"/>
+</Response>`;
+
+    res.type('text/xml');
+    res.send(twiml);
+  } catch (error) {
+    console.error('Error handling incoming call:', error);
+    res.type('text/xml');
+    res.send('<?xml version="1.0" encoding="UTF-8"?><Response><Say>Error processing call</Say></Response>');
   }
 });
 

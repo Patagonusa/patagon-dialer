@@ -3,17 +3,42 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
-// Disposition types
+// Disposition types - Spanish
 const DISPOSITIONS = [
-  { value: 'appointment_set', label: 'Appointment Set', color: '#4caf50' },
-  { value: 'callback', label: 'Callback Requested', color: '#ff9800' },
-  { value: 'not_interested', label: 'Not Interested', color: '#9e9e9e' },
-  { value: 'no_answer', label: 'No Answer', color: '#f44336' },
-  { value: 'voicemail', label: 'Left Voicemail', color: '#9c27b0' },
-  { value: 'wrong_number', label: 'Wrong Number', color: '#795548' },
-  { value: 'busy', label: 'Busy', color: '#ff5722' },
-  { value: 'disconnected', label: 'Disconnected', color: '#607d8b' }
+  { value: 'appointment_set', label: 'Cita Agendada', color: '#4caf50' },
+  { value: 'callback', label: 'Devolver Llamada', color: '#ff9800' },
+  { value: 'not_interested', label: 'No Interesado', color: '#9e9e9e' },
+  { value: 'no_answer', label: 'No Contesta', color: '#f44336' },
+  { value: 'voicemail', label: 'Buzón de Voz', color: '#9c27b0' },
+  { value: 'wrong_number', label: 'Número Equivocado', color: '#795548' },
+  { value: 'busy', label: 'Ocupado', color: '#ff5722' },
+  { value: 'disconnected', label: 'Desconectado', color: '#607d8b' }
 ]
+
+// Status labels in Spanish
+const STATUS_LABELS = {
+  all: 'Todos',
+  new: 'Nuevo',
+  callback: 'Devolver',
+  appointment: 'Cita',
+  no_answer: 'No Contesta',
+  closed: 'Cerrado',
+  appointment_set: 'Cita Agendada',
+  not_interested: 'No Interesado',
+  voicemail: 'Buzón',
+  wrong_number: 'Número Equivocado',
+  busy: 'Ocupado',
+  disconnected: 'Desconectado',
+  pending: 'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+  unread: 'No Leído',
+  read: 'Leído',
+  follow_up: 'Seguimiento',
+  scheduled: 'Programada',
+  dispatched: 'Despachada',
+  completed: 'Completada'
+}
 
 // API helper with auth
 const api = axios.create({ baseURL: API_URL })
@@ -96,7 +121,7 @@ function LoginPage({ onLogin }) {
         await axios.post(`${API_URL}/api/auth/register`, {
           email, password, first_name: firstName, last_name: lastName
         })
-        setSuccess('Registration successful! Please wait for admin approval.')
+        setSuccess('Registro exitoso. Por favor espere la aprobación del administrador.')
         setIsRegister(false)
         setEmail('')
         setPassword('')
@@ -107,7 +132,7 @@ function LoginPage({ onLogin }) {
         onLogin(res.data.user, res.data.token)
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred')
+      setError(err.response?.data?.error || 'Ocurrió un error')
     }
     setLoading(false)
   }
@@ -118,7 +143,7 @@ function LoginPage({ onLogin }) {
         <div className="login-header">
           <img src="/logo.png" alt="Patagon" className="login-logo" />
           <h1>Patagon Dialer</h1>
-          <p>Lead Management System</p>
+          <p>Sistema de Gestión de Leads</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -128,7 +153,7 @@ function LoginPage({ onLogin }) {
           {isRegister && (
             <div className="form-row">
               <div className="form-group">
-                <label>First Name</label>
+                <label>Nombre</label>
                 <input
                   type="text"
                   value={firstName}
@@ -137,7 +162,7 @@ function LoginPage({ onLogin }) {
                 />
               </div>
               <div className="form-group">
-                <label>Last Name</label>
+                <label>Apellido</label>
                 <input
                   type="text"
                   value={lastName}
@@ -149,7 +174,7 @@ function LoginPage({ onLogin }) {
           )}
 
           <div className="form-group">
-            <label>Email</label>
+            <label>Correo Electrónico</label>
             <input
               type="email"
               value={email}
@@ -159,7 +184,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label>Contraseña</label>
             <input
               type="password"
               value={password}
@@ -169,15 +194,15 @@ function LoginPage({ onLogin }) {
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Please wait...' : (isRegister ? 'Register' : 'Sign In')}
+            {loading ? 'Por favor espere...' : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
           </button>
         </form>
 
         <div className="login-footer">
           {isRegister ? (
-            <p>Already have an account? <button onClick={() => setIsRegister(false)}>Sign In</button></p>
+            <p>¿Ya tienes cuenta? <button onClick={() => setIsRegister(false)}>Iniciar Sesión</button></p>
           ) : (
-            <p>Need an account? <button onClick={() => setIsRegister(true)}>Register</button></p>
+            <p>¿Necesitas una cuenta? <button onClick={() => setIsRegister(true)}>Registrarse</button></p>
           )}
         </div>
       </div>
@@ -192,6 +217,7 @@ function MainApp({ user, onLogout }) {
   const [selectedLead, setSelectedLead] = useState(null)
   const [selectedLeadIndex, setSelectedLeadIndex] = useState(-1)
   const [conversations, setConversations] = useState([])
+  const [callHistory, setCallHistory] = useState([])
   const [appointments, setAppointments] = useState([])
   const [salespeople, setSalespeople] = useState([])
   const [users, setUsers] = useState([])
@@ -200,6 +226,10 @@ function MainApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dispositionFilter, setDispositionFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('')
+  const [sortBy, setSortBy] = useState('created_at')
+  const [sortOrder, setSortOrder] = useState('desc')
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [toast, setToast] = useState(null)
 
@@ -236,8 +266,14 @@ function MainApp({ user, onLogout }) {
         page,
         limit: 50,
         status: statusFilter,
-        search: searchTerm
+        disposition: dispositionFilter,
+        search: searchTerm,
+        sort: sortBy,
+        order: sortOrder
       })
+      if (dateFilter) {
+        params.append('date', dateFilter)
+      }
       const res = await api.get(`/api/leads?${params}`)
       setLeads(res.data.leads)
       setPagination({
@@ -247,10 +283,10 @@ function MainApp({ user, onLogout }) {
       })
     } catch (error) {
       console.error('Error fetching leads:', error)
-      showToast('Error loading leads', 'error')
+      showToast('Error cargando leads', 'error')
     }
     setLoading(false)
-  }, [statusFilter, searchTerm])
+  }, [statusFilter, dispositionFilter, searchTerm, dateFilter, sortBy, sortOrder])
 
   // Fetch conversations for a lead
   const fetchConversations = async (leadId) => {
@@ -259,6 +295,17 @@ function MainApp({ user, onLogout }) {
       setConversations(res.data)
     } catch (error) {
       console.error('Error fetching conversations:', error)
+    }
+  }
+
+  // Fetch call history for a lead
+  const fetchCallHistory = async (leadId) => {
+    try {
+      const res = await api.get(`/api/leads/${leadId}/calls`)
+      setCallHistory(res.data)
+    } catch (error) {
+      console.error('Error fetching call history:', error)
+      setCallHistory([])
     }
   }
 
@@ -306,7 +353,6 @@ function MainApp({ user, onLogout }) {
     fetchLeads()
     fetchSalespeople()
     fetchAlertCount()
-    // Poll for new alerts every 30 seconds
     const interval = setInterval(fetchAlertCount, 30000)
     return () => clearInterval(interval)
   }, [fetchLeads])
@@ -325,7 +371,10 @@ function MainApp({ user, onLogout }) {
   const selectLead = async (lead, index) => {
     setSelectedLead(lead)
     setSelectedLeadIndex(index)
-    await fetchConversations(lead.id)
+    await Promise.all([
+      fetchConversations(lead.id),
+      fetchCallHistory(lead.id)
+    ])
     setCurrentView('leadCard')
   }
 
@@ -345,10 +394,10 @@ function MainApp({ user, onLogout }) {
         to_phone: phone
       })
       await fetchConversations(selectedLead.id)
-      showToast('Message sent successfully')
+      showToast('Mensaje enviado')
     } catch (error) {
       console.error('Error sending SMS:', error)
-      showToast('Failed to send message', 'error')
+      showToast('Error al enviar mensaje', 'error')
     }
   }
 
@@ -358,10 +407,10 @@ function MainApp({ user, onLogout }) {
       const res = await api.post(`/api/leads/${selectedLead.id}/notes`, { note })
       setSelectedLead(res.data)
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
-      showToast('Note added')
+      showToast('Nota agregada')
     } catch (error) {
       console.error('Error adding note:', error)
-      showToast('Failed to add note', 'error')
+      showToast('Error al agregar nota', 'error')
     }
   }
 
@@ -376,10 +425,10 @@ function MainApp({ user, onLogout }) {
       setSelectedLead(res.data)
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
       setShowDispositionModal(false)
-      showToast('Disposition saved')
+      showToast('Disposición guardada')
     } catch (error) {
       console.error('Error adding disposition:', error)
-      showToast('Failed to save disposition', 'error')
+      showToast('Error al guardar disposición', 'error')
     }
   }
 
@@ -394,10 +443,10 @@ function MainApp({ user, onLogout }) {
       setSelectedLead(res.data)
       setLeads(leads.map(l => l.id === res.data.id ? res.data : l))
       setShowAppointmentModal(false)
-      showToast('Appointment created')
+      showToast('Cita creada')
     } catch (error) {
       console.error('Error creating appointment:', error)
-      showToast('Failed to create appointment', 'error')
+      showToast('Error al crear cita', 'error')
     }
   }
 
@@ -409,10 +458,10 @@ function MainApp({ user, onLogout }) {
       })
       await fetchAppointments()
       setShowDispatchModal(false)
-      showToast('Appointment dispatched')
+      showToast('Cita enviada')
     } catch (error) {
       console.error('Error dispatching appointment:', error)
-      showToast('Failed to dispatch appointment', 'error')
+      showToast('Error al enviar cita', 'error')
     }
   }
 
@@ -430,7 +479,7 @@ function MainApp({ user, onLogout }) {
       fetchLeads()
     } catch (error) {
       console.error('Error uploading file:', error)
-      showToast(error.response?.data?.error || 'Failed to upload file', 'error')
+      showToast(error.response?.data?.error || 'Error al subir archivo', 'error')
     }
   }
 
@@ -439,9 +488,9 @@ function MainApp({ user, onLogout }) {
     try {
       await api.post(`/api/users/${userId}/approve`)
       fetchUsers()
-      showToast('User approved')
+      showToast('Usuario aprobado')
     } catch (error) {
-      showToast('Failed to approve user', 'error')
+      showToast('Error al aprobar usuario', 'error')
     }
   }
 
@@ -450,9 +499,9 @@ function MainApp({ user, onLogout }) {
     try {
       await api.post(`/api/users/${userId}/reject`)
       fetchUsers()
-      showToast('User rejected')
+      showToast('Usuario rechazado')
     } catch (error) {
-      showToast('Failed to reject user', 'error')
+      showToast('Error al rechazar usuario', 'error')
     }
   }
 
@@ -463,7 +512,7 @@ function MainApp({ user, onLogout }) {
       fetchInboundAlerts()
       fetchAlertCount()
     } catch (error) {
-      showToast('Failed to mark as read', 'error')
+      showToast('Error al marcar como leído', 'error')
     }
   }
 
@@ -473,7 +522,10 @@ function MainApp({ user, onLogout }) {
     if (alert.leads) {
       const res = await api.get(`/api/leads/${alert.lead_id}`)
       setSelectedLead(res.data)
-      await fetchConversations(res.data.id)
+      await Promise.all([
+        fetchConversations(res.data.id),
+        fetchCallHistory(res.data.id)
+      ])
       setCurrentView('leadCard')
     }
   }
@@ -497,35 +549,35 @@ function MainApp({ user, onLogout }) {
             className={currentView === 'inbound' ? 'active' : ''}
             onClick={() => setCurrentView('inbound')}
           >
-            Inbound SMS {alertCount > 0 && <span className="badge">{alertCount}</span>}
+            SMS Entrantes {alertCount > 0 && <span className="badge">{alertCount}</span>}
           </button>
           <button
             className={currentView === 'appointments' ? 'active' : ''}
             onClick={() => setCurrentView('appointments')}
           >
-            Appointments
+            Citas
           </button>
           <button
             className={currentView === 'salespeople' ? 'active' : ''}
             onClick={() => setCurrentView('salespeople')}
           >
-            Salespeople
+            Vendedores
           </button>
           {isAdmin && (
             <button
               className={currentView === 'users' ? 'active' : ''}
               onClick={() => setCurrentView('users')}
             >
-              User Management
+              Gestión de Usuarios
             </button>
           )}
         </nav>
         <div className="sidebar-footer">
           <div className="user-info">
             <span>{user.first_name} {user.last_name}</span>
-            <small>{user.role}</small>
+            <small>{user.role === 'admin' ? 'Administrador' : 'Usuario'}</small>
           </div>
-          <button className="logout-btn" onClick={onLogout}>Logout</button>
+          <button className="logout-btn" onClick={onLogout}>Cerrar Sesión</button>
         </div>
       </aside>
 
@@ -540,48 +592,107 @@ function MainApp({ user, onLogout }) {
                 <input
                   type="text"
                   className="search-input"
-                  placeholder="Search leads..."
+                  placeholder="Buscar leads..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
                 />
                 {isAdmin && (
                   <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-                    Upload Excel
+                    Subir Excel
                   </button>
                 )}
               </div>
             </header>
 
             <div className="content">
-              {/* Filter Tabs */}
-              <div className="filter-tabs">
-                {['all', 'new', 'callback', 'appointment', 'no_answer', 'closed'].map(status => (
-                  <button
-                    key={status}
-                    className={`filter-tab ${statusFilter === status ? 'active' : ''}`}
-                    onClick={() => { setStatusFilter(status); fetchLeads(1) }}
+              {/* Filters */}
+              <div className="filters-row">
+                {/* Status Filter */}
+                <div className="filter-group">
+                  <label>Estado:</label>
+                  <div className="filter-tabs">
+                    {['all', 'new', 'callback', 'appointment', 'no_answer', 'closed'].map(status => (
+                      <button
+                        key={status}
+                        className={`filter-tab ${statusFilter === status ? 'active' : ''}`}
+                        onClick={() => { setStatusFilter(status); fetchLeads(1) }}
+                      >
+                        {STATUS_LABELS[status] || status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Disposition Filter */}
+                <div className="filter-group">
+                  <label>Disposición:</label>
+                  <select
+                    value={dispositionFilter}
+                    onChange={(e) => { setDispositionFilter(e.target.value); fetchLeads(1) }}
+                    className="filter-select"
                   >
-                    {status === 'all' ? 'All' : status.replace('_', ' ')}
+                    <option value="all">Todas</option>
+                    {DISPOSITIONS.map(d => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Filter */}
+                <div className="filter-group">
+                  <label>Fecha:</label>
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => { setDateFilter(e.target.value); fetchLeads(1) }}
+                    className="filter-date"
+                  />
+                  {dateFilter && (
+                    <button className="btn btn-small btn-secondary" onClick={() => { setDateFilter(''); fetchLeads(1) }}>
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                {/* Sort */}
+                <div className="filter-group">
+                  <label>Ordenar:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => { setSortBy(e.target.value); fetchLeads(1) }}
+                    className="filter-select"
+                  >
+                    <option value="created_at">Fecha de Creación</option>
+                    <option value="lead_date">Fecha del Lead</option>
+                    <option value="first_name">Nombre</option>
+                    <option value="status">Estado</option>
+                  </select>
+                  <button
+                    className="btn btn-small btn-secondary"
+                    onClick={() => { setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); fetchLeads(1) }}
+                  >
+                    {sortOrder === 'asc' ? '↑' : '↓'}
                   </button>
-                ))}
+                </div>
               </div>
 
               {loading ? (
                 <div className="loading"><div className="spinner"></div></div>
               ) : leads.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No leads found</h3>
-                  <p>{isAdmin ? 'Upload an Excel file to get started' : 'No leads available'}</p>
+                  <h3>No se encontraron leads</h3>
+                  <p>{isAdmin ? 'Sube un archivo Excel para comenzar' : 'No hay leads disponibles'}</p>
                 </div>
               ) : (
                 <div className="lead-list">
                   <div className="lead-list-header">
-                    <span>Name</span>
-                    <span>Phone</span>
-                    <span>City</span>
-                    <span>Status</span>
-                    <span>Actions</span>
+                    <span>Nombre</span>
+                    <span>Teléfono</span>
+                    <span>Ciudad</span>
+                    <span>Fecha</span>
+                    <span>Estado</span>
+                    <span>Acciones</span>
                   </div>
                   {leads.map((lead, index) => (
                     <div key={lead.id} className="lead-item" onClick={() => selectLead(lead, index)}>
@@ -591,9 +702,12 @@ function MainApp({ user, onLogout }) {
                       </div>
                       <span>{lead.phone}</span>
                       <span>{lead.city}, {lead.state}</span>
-                      <span className={`status-badge status-${lead.status}`}>{lead.status}</span>
+                      <span>{lead.lead_date || '-'}</span>
+                      <span className={`status-badge status-${lead.status}`}>
+                        {STATUS_LABELS[lead.status] || lead.status}
+                      </span>
                       <button className="btn btn-small btn-secondary" onClick={(e) => { e.stopPropagation(); selectLead(lead, index) }}>
-                        View
+                        Ver
                       </button>
                     </div>
                   ))}
@@ -607,14 +721,14 @@ function MainApp({ user, onLogout }) {
                     disabled={pagination.page === 1}
                     onClick={() => fetchLeads(pagination.page - 1)}
                   >
-                    Previous
+                    Anterior
                   </button>
-                  <span>Page {pagination.page} of {pagination.totalPages}</span>
+                  <span>Página {pagination.page} de {pagination.totalPages}</span>
                   <button
                     disabled={pagination.page === pagination.totalPages}
                     onClick={() => fetchLeads(pagination.page + 1)}
                   >
-                    Next
+                    Siguiente
                   </button>
                 </div>
               )}
@@ -626,16 +740,16 @@ function MainApp({ user, onLogout }) {
         {currentView === 'leadCard' && selectedLead && (
           <>
             <header className="header">
-              <h2>Lead Details</h2>
+              <h2>Detalles del Lead</h2>
               <div className="header-actions">
                 <button className="btn btn-secondary" onClick={() => { setCurrentView('leads'); setSelectedLead(null) }}>
-                  Back to List
+                  Volver a Lista
                 </button>
                 <button className="btn btn-primary" onClick={() => setShowDispositionModal(true)}>
-                  Add Disposition
+                  Agregar Disposición
                 </button>
                 <button className="btn btn-success" onClick={() => setShowAppointmentModal(true)}>
-                  Set Appointment
+                  Agendar Cita
                 </button>
               </div>
             </header>
@@ -648,15 +762,15 @@ function MainApp({ user, onLogout }) {
                   disabled={selectedLeadIndex === 0}
                   onClick={() => navigateLead(-1)}
                 >
-                  &larr; Previous Lead
+                  ← Lead Anterior
                 </button>
-                <span>Lead {selectedLeadIndex + 1} of {leads.length}</span>
+                <span>Lead {selectedLeadIndex + 1} de {leads.length}</span>
                 <button
                   className="nav-btn"
                   disabled={selectedLeadIndex === leads.length - 1}
                   onClick={() => navigateLead(1)}
                 >
-                  Next Lead &rarr;
+                  Siguiente Lead →
                 </button>
               </div>
 
@@ -665,34 +779,36 @@ function MainApp({ user, onLogout }) {
                 <div className="lead-card">
                   <div className="lead-card-header">
                     <h2>{selectedLead.first_name} {selectedLead.last_name}</h2>
-                    <p>{selectedLead.job_group} | Source: {selectedLead.source}</p>
-                    <span className={`status-badge status-${selectedLead.status}`}>{selectedLead.status}</span>
+                    <p>{selectedLead.job_group} | Fuente: {selectedLead.source}</p>
+                    <span className={`status-badge status-${selectedLead.status}`}>
+                      {STATUS_LABELS[selectedLead.status] || selectedLead.status}
+                    </span>
                   </div>
 
                   <div className="lead-card-body">
                     <div className="lead-info-grid">
                       <div className="info-item">
-                        <label>Address</label>
+                        <label>Dirección</label>
                         <span>{selectedLead.address}</span>
                       </div>
                       <div className="info-item">
-                        <label>City, State, Zip</label>
+                        <label>Ciudad, Estado, CP</label>
                         <span>{selectedLead.city}, {selectedLead.state} {selectedLead.zip}</span>
                       </div>
                       <div className="info-item">
-                        <label>Primary Phone</label>
+                        <label>Teléfono Principal</label>
                         <span>{selectedLead.phone}</span>
                       </div>
                       <div className="info-item">
-                        <label>Phone 2</label>
+                        <label>Teléfono 2</label>
                         <span>{selectedLead.phone2 || 'N/A'}</span>
                       </div>
                       <div className="info-item">
-                        <label>Phone 3</label>
+                        <label>Teléfono 3</label>
                         <span>{selectedLead.phone3 || 'N/A'}</span>
                       </div>
                       <div className="info-item">
-                        <label>Lead Date</label>
+                        <label>Fecha del Lead</label>
                         <span>{selectedLead.lead_date || 'N/A'}</span>
                       </div>
                     </div>
@@ -701,20 +817,23 @@ function MainApp({ user, onLogout }) {
                     <div className="phone-actions">
                       {selectedLead.phone && (
                         <a href={`tel:${selectedLead.phone}`} className="phone-btn">
-                          Call {selectedLead.phone}
+                          Llamar {selectedLead.phone}
                         </a>
                       )}
                       {selectedLead.phone2 && (
                         <a href={`tel:${selectedLead.phone2}`} className="phone-btn">
-                          Call {selectedLead.phone2}
+                          Llamar {selectedLead.phone2}
                         </a>
                       )}
                       {selectedLead.phone3 && (
                         <a href={`tel:${selectedLead.phone3}`} className="phone-btn">
-                          Call {selectedLead.phone3}
+                          Llamar {selectedLead.phone3}
                         </a>
                       )}
                     </div>
+
+                    {/* Call History Section */}
+                    <CallHistorySection calls={callHistory} />
 
                     {/* Notes Section */}
                     <NotesSection lead={selectedLead} onAddNote={addNote} />
@@ -736,14 +855,14 @@ function MainApp({ user, onLogout }) {
         {currentView === 'inbound' && (
           <>
             <header className="header">
-              <h2>Inbound SMS Alerts</h2>
+              <h2>SMS Entrantes</h2>
             </header>
 
             <div className="content">
               {inboundAlerts.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No inbound messages</h3>
-                  <p>When customers reply to your SMS, they will appear here</p>
+                  <h3>No hay mensajes entrantes</h3>
+                  <p>Cuando los clientes respondan a tus SMS, aparecerán aquí</p>
                 </div>
               ) : (
                 <div className="inbound-list">
@@ -760,7 +879,9 @@ function MainApp({ user, onLogout }) {
                         <small>{new Date(alert.created_at).toLocaleString()}</small>
                       </div>
                       <div className="inbound-status">
-                        <span className={`status-badge status-${alert.status}`}>{alert.status}</span>
+                        <span className={`status-badge status-${alert.status}`}>
+                          {STATUS_LABELS[alert.status] || alert.status}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -774,14 +895,14 @@ function MainApp({ user, onLogout }) {
         {currentView === 'appointments' && (
           <>
             <header className="header">
-              <h2>Appointments</h2>
+              <h2>Citas</h2>
             </header>
 
             <div className="content">
               {appointments.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No appointments</h3>
-                  <p>Set appointments from lead cards</p>
+                  <h3>No hay citas</h3>
+                  <p>Agenda citas desde las tarjetas de leads</p>
                 </div>
               ) : (
                 <div className="appointments-list">
@@ -790,8 +911,10 @@ function MainApp({ user, onLogout }) {
                       <div className="appointment-info">
                         <h4>{apt.leads?.first_name} {apt.leads?.last_name}</h4>
                         <p>{apt.leads?.phone} | {apt.leads?.address}, {apt.leads?.city}</p>
-                        <p><strong>Date:</strong> {apt.appointment_date} at {apt.appointment_time}</p>
-                        <p><strong>Status:</strong> <span className={`status-badge status-${apt.status}`}>{apt.status}</span></p>
+                        <p><strong>Fecha:</strong> {apt.appointment_date} a las {apt.appointment_time}</p>
+                        <p><strong>Estado:</strong> <span className={`status-badge status-${apt.status}`}>
+                          {STATUS_LABELS[apt.status] || apt.status}
+                        </span></p>
                       </div>
                       <div className="appointment-actions">
                         {apt.status !== 'dispatched' && (
@@ -799,7 +922,7 @@ function MainApp({ user, onLogout }) {
                             className="btn btn-success btn-small"
                             onClick={() => { setSelectedAppointment(apt); setShowDispatchModal(true) }}
                           >
-                            Dispatch
+                            Enviar
                           </button>
                         )}
                       </div>
@@ -815,7 +938,7 @@ function MainApp({ user, onLogout }) {
         {currentView === 'salespeople' && (
           <>
             <header className="header">
-              <h2>Salespeople</h2>
+              <h2>Vendedores</h2>
             </header>
 
             <div className="content">
@@ -833,42 +956,42 @@ function MainApp({ user, onLogout }) {
         {currentView === 'users' && isAdmin && (
           <>
             <header className="header">
-              <h2>User Management</h2>
+              <h2>Gestión de Usuarios</h2>
             </header>
 
             <div className="content">
               <div className="users-list">
                 <div className="lead-list-header" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 150px' }}>
-                  <span>Name</span>
-                  <span>Email</span>
-                  <span>Role</span>
-                  <span>Status</span>
-                  <span>Actions</span>
+                  <span>Nombre</span>
+                  <span>Correo</span>
+                  <span>Rol</span>
+                  <span>Estado</span>
+                  <span>Acciones</span>
                 </div>
                 {users.map(u => (
                   <div key={u.id} className="lead-item" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr 150px' }}>
                     <span>{u.first_name} {u.last_name}</span>
                     <span>{u.email}</span>
                     <span className={`status-badge ${u.role === 'admin' ? 'status-appointment' : 'status-new'}`}>
-                      {u.role}
+                      {u.role === 'admin' ? 'Admin' : 'Usuario'}
                     </span>
                     <span className={`status-badge status-${u.status === 'approved' ? 'appointment' : u.status === 'pending' ? 'callback' : 'closed'}`}>
-                      {u.status}
+                      {STATUS_LABELS[u.status] || u.status}
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {u.status === 'pending' && (
                         <>
                           <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
-                            Approve
+                            Aprobar
                           </button>
                           <button className="btn btn-danger btn-small" onClick={() => rejectUser(u.id)}>
-                            Reject
+                            Rechazar
                           </button>
                         </>
                       )}
                       {u.status === 'rejected' && (
                         <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
-                          Approve
+                          Aprobar
                         </button>
                       )}
                     </div>
@@ -920,6 +1043,43 @@ function MainApp({ user, onLogout }) {
 
 // ==================== COMPONENTS ====================
 
+// Call History Section Component
+function CallHistorySection({ calls }) {
+  if (!calls || calls.length === 0) {
+    return (
+      <div className="call-history-section">
+        <h3>Historial de Llamadas</h3>
+        <p className="empty-text">No hay llamadas registradas</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="call-history-section">
+      <h3>Historial de Llamadas</h3>
+      <div className="call-history-list">
+        {calls.map(call => (
+          <div key={call.id} className={`call-item ${call.direction}`}>
+            <div className="call-info">
+              <span className={`call-direction ${call.direction}`}>
+                {call.direction === 'inbound' ? '📞 Entrante' : '📱 Saliente'}
+              </span>
+              <span className="call-phone">{call.phone}</span>
+              <span className="call-duration">{call.duration ? `${Math.floor(call.duration / 60)}:${(call.duration % 60).toString().padStart(2, '0')}` : '-'}</span>
+              <span className="call-date">{new Date(call.created_at).toLocaleString()}</span>
+            </div>
+            {call.recording_url && (
+              <audio controls className="call-recording">
+                <source src={call.recording_url} type="audio/mpeg" />
+              </audio>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // Notes Section Component
 function NotesSection({ lead, onAddNote }) {
   const [newNote, setNewNote] = useState('')
@@ -933,18 +1093,18 @@ function NotesSection({ lead, onAddNote }) {
 
   return (
     <div className="notes-section">
-      <h3>Notes</h3>
+      <h3>Notas</h3>
       <div className="notes-display">
-        {lead.notes || 'No notes yet'}
+        {lead.notes || 'Sin notas aún'}
       </div>
       <div className="notes-input">
         <textarea
           rows="2"
-          placeholder="Add a note..."
+          placeholder="Agregar una nota..."
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
         />
-        <button className="btn btn-primary" onClick={handleSubmit}>Add</button>
+        <button className="btn btn-primary" onClick={handleSubmit}>Agregar</button>
       </div>
     </div>
   )
@@ -965,7 +1125,7 @@ function ConversationPanel({ lead, conversations, onSendSMS }) {
   return (
     <div className="conversation-panel">
       <div className="conversation-header">
-        SMS Conversation
+        Conversación SMS
         <select
           value={selectedPhone}
           onChange={(e) => setSelectedPhone(e.target.value)}
@@ -980,7 +1140,7 @@ function ConversationPanel({ lead, conversations, onSendSMS }) {
       <div className="conversation-messages">
         {conversations.length === 0 ? (
           <div className="empty-state">
-            <p>No messages yet</p>
+            <p>Sin mensajes aún</p>
           </div>
         ) : (
           conversations.map(conv => (
@@ -997,7 +1157,7 @@ function ConversationPanel({ lead, conversations, onSendSMS }) {
       <div className="conversation-input">
         <input
           type="text"
-          placeholder="Type a message..."
+          placeholder="Escribe un mensaje..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -1019,7 +1179,7 @@ function DispositionModal({ onClose, onSave }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Add Disposition</h3>
+          <h3>Agregar Disposición</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
@@ -1035,23 +1195,23 @@ function DispositionModal({ onClose, onSave }) {
             ))}
           </div>
           <div className="form-group">
-            <label>Notes (optional)</label>
+            <label>Notas (opcional)</label>
             <textarea
               rows="3"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add any additional notes..."
+              placeholder="Agregar notas adicionales..."
             />
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button
             className="btn btn-primary"
             disabled={!selected}
             onClick={() => onSave(selected, notes)}
           >
-            Save Disposition
+            Guardar Disposición
           </button>
         </div>
       </div>
@@ -1070,12 +1230,12 @@ function AppointmentModal({ salespeople, onClose, onSave }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Set Appointment</h3>
+          <h3>Agendar Cita</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
           <div className="form-group">
-            <label>Date</label>
+            <label>Fecha</label>
             <input
               type="date"
               value={date}
@@ -1083,7 +1243,7 @@ function AppointmentModal({ salespeople, onClose, onSave }) {
             />
           </div>
           <div className="form-group">
-            <label>Time</label>
+            <label>Hora</label>
             <input
               type="time"
               value={time}
@@ -1091,32 +1251,32 @@ function AppointmentModal({ salespeople, onClose, onSave }) {
             />
           </div>
           <div className="form-group">
-            <label>Assign Salesperson</label>
+            <label>Asignar Vendedor</label>
             <select value={salespersonId} onChange={(e) => setSalespersonId(e.target.value)}>
-              <option value="">Select salesperson...</option>
+              <option value="">Seleccionar vendedor...</option>
               {salespeople.map(sp => (
                 <option key={sp.id} value={sp.id}>{sp.name}</option>
               ))}
             </select>
           </div>
           <div className="form-group">
-            <label>Notes</label>
+            <label>Notas</label>
             <textarea
               rows="3"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Appointment notes..."
+              placeholder="Notas de la cita..."
             />
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button
             className="btn btn-success"
             disabled={!date || !time}
             onClick={() => onSave({ appointment_date: date, appointment_time: time, salesperson_id: salespersonId || null, notes })}
           >
-            Create Appointment
+            Crear Cita
           </button>
         </div>
       </div>
@@ -1141,7 +1301,7 @@ function UploadModal({ onClose, onUpload }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Upload Leads</h3>
+          <h3>Subir Leads</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
@@ -1156,27 +1316,27 @@ function UploadModal({ onClose, onUpload }) {
               onChange={(e) => setFile(e.target.files[0])}
             />
             {file ? (
-              <p><strong>{file.name}</strong> selected</p>
+              <p><strong>{file.name}</strong> seleccionado</p>
             ) : (
               <>
-                <p><strong>Click to select file</strong></p>
-                <p>Accepts .xlsx, .xls, .csv</p>
+                <p><strong>Clic para seleccionar archivo</strong></p>
+                <p>Acepta .xlsx, .xls, .csv</p>
               </>
             )}
           </div>
           <div style={{ fontSize: '0.85rem', color: '#666' }}>
-            <p><strong>Expected columns:</strong></p>
+            <p><strong>Columnas esperadas:</strong></p>
             <p>Name, Address, City, State, Zip, Phone, Phone 2, Phone 3, Job Group, Date, Source</p>
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button
             className="btn btn-primary"
             disabled={!file || uploading}
             onClick={handleUpload}
           >
-            {uploading ? 'Uploading...' : 'Upload'}
+            {uploading ? 'Subiendo...' : 'Subir'}
           </button>
         </div>
       </div>
@@ -1194,16 +1354,16 @@ function DispatchModal({ appointment, salespeople, onClose, onDispatch }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Dispatch Appointment</h3>
+          <h3>Enviar Cita</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
           <p style={{ marginBottom: 16 }}>
-            Send appointment details via SMS to salesperson.
+            Enviar detalles de la cita por SMS al vendedor.
           </p>
 
           <div className="form-group">
-            <label>Salesperson Phone Number</label>
+            <label>Teléfono del Vendedor</label>
             <input
               type="tel"
               placeholder="+1234567890"
@@ -1213,27 +1373,27 @@ function DispatchModal({ appointment, salespeople, onClose, onDispatch }) {
           </div>
 
           <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8, fontSize: '0.9rem' }}>
-            <strong>Message Preview:</strong>
+            <strong>Vista Previa del Mensaje:</strong>
             <pre style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>
-{`NEW APPOINTMENT
-Name: ${appointment.leads?.first_name} ${appointment.leads?.last_name}
-Phone: ${appointment.leads?.phone}
-Address: ${appointment.leads?.address}, ${appointment.leads?.city}, ${appointment.leads?.state} ${appointment.leads?.zip}
-Job: ${appointment.leads?.job_group}
-Date: ${appointment.appointment_date}
-Time: ${appointment.appointment_time}
-Notes: ${appointment.notes || 'N/A'}`}
+{`NUEVA CITA
+Nombre: ${appointment.leads?.first_name} ${appointment.leads?.last_name}
+Teléfono: ${appointment.leads?.phone}
+Dirección: ${appointment.leads?.address}, ${appointment.leads?.city}, ${appointment.leads?.state} ${appointment.leads?.zip}
+Trabajo: ${appointment.leads?.job_group}
+Fecha: ${appointment.appointment_date}
+Hora: ${appointment.appointment_time}
+Notas: ${appointment.notes || 'N/A'}`}
             </pre>
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button
             className="btn btn-success"
             disabled={!salespersonPhone && !selectedSalesperson?.phone}
             onClick={() => onDispatch(appointment.id, salespersonPhone || selectedSalesperson?.phone)}
           >
-            Send to Salesperson
+            Enviar a Vendedor
           </button>
         </div>
       </div>
@@ -1261,9 +1421,9 @@ function SalespeopleManager({ salespeople, onRefresh, showToast, isAdmin }) {
       setPhone('')
       setEmail('')
       onRefresh()
-      showToast('Salesperson added')
+      showToast('Vendedor agregado')
     } catch (error) {
-      showToast('Failed to add salesperson', 'error')
+      showToast('Error al agregar vendedor', 'error')
     }
     setAdding(false)
   }
@@ -1272,25 +1432,25 @@ function SalespeopleManager({ salespeople, onRefresh, showToast, isAdmin }) {
     <div>
       {isAdmin && (
         <div style={{ background: 'white', borderRadius: 12, padding: 24, marginBottom: 24 }}>
-          <h3 style={{ marginBottom: 16 }}>Add New Salesperson</h3>
+          <h3 style={{ marginBottom: 16 }}>Agregar Nuevo Vendedor</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             <input
               type="text"
-              placeholder="Name"
+              placeholder="Nombre"
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
             />
             <input
               type="tel"
-              placeholder="Phone"
+              placeholder="Teléfono"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
             />
             <input
               type="email"
-              placeholder="Email"
+              placeholder="Correo"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ padding: 12, border: '1px solid #ddd', borderRadius: 8 }}
@@ -1302,16 +1462,16 @@ function SalespeopleManager({ salespeople, onRefresh, showToast, isAdmin }) {
             disabled={!name.trim() || adding}
             onClick={handleAdd}
           >
-            {adding ? 'Adding...' : 'Add Salesperson'}
+            {adding ? 'Agregando...' : 'Agregar Vendedor'}
           </button>
         </div>
       )}
 
       <div className="lead-list">
         <div className="lead-list-header" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-          <span>Name</span>
-          <span>Phone</span>
-          <span>Email</span>
+          <span>Nombre</span>
+          <span>Teléfono</span>
+          <span>Correo</span>
         </div>
         {salespeople.map(sp => (
           <div key={sp.id} className="lead-item" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
