@@ -736,14 +736,14 @@ app.post('/api/webhook/recording', express.urlencoded({ extended: true }), async
     const { CallSid, RecordingUrl, RecordingSid, RecordingDuration, RecordingStatus } = req.body;
     console.log('Recording webhook:', { CallSid, RecordingUrl, RecordingSid, RecordingDuration, RecordingStatus });
 
-    if (CallSid && RecordingUrl) {
-      // Twilio recording URL - add .mp3 for direct playback
-      const recordingUrlMp3 = `${RecordingUrl}.mp3`;
+    if (CallSid && RecordingSid) {
+      // Use our proxy URL so users don't need Twilio auth
+      const proxyRecordingUrl = `https://patagon-dialer-api.onrender.com/api/recordings/${RecordingSid}`;
 
       const { error } = await supabase
         .from('calls')
         .update({
-          recording_url: recordingUrlMp3,
+          recording_url: proxyRecordingUrl,
           recording_sid: RecordingSid,
           recording_duration: parseInt(RecordingDuration) || 0,
           updated_at: new Date().toISOString()
@@ -751,7 +751,7 @@ app.post('/api/webhook/recording', express.urlencoded({ extended: true }), async
         .eq('twilio_sid', CallSid);
 
       if (error) console.error('Error updating recording:', error);
-      else console.log('Recording saved for call:', CallSid);
+      else console.log('Recording saved for call:', CallSid, 'URL:', proxyRecordingUrl);
     }
 
     res.status(200).send('OK');
@@ -1400,6 +1400,37 @@ app.post('/api/voice/connect', express.urlencoded({ extended: true }), (req, res
   twiml.dial().conference('PatagonDialer');
   res.type('text/xml');
   res.send(twiml.toString());
+});
+
+// Proxy endpoint for Twilio recordings (so users don't need Twilio auth)
+app.get('/api/recordings/:recordingSid', authMiddleware, async (req, res) => {
+  try {
+    const { recordingSid } = req.params;
+
+    // Fetch recording from Twilio with authentication
+    const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
+
+    const response = await fetch(recordingUrl, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64')
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Recording not found' });
+    }
+
+    // Stream the recording to the client
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Disposition': `inline; filename="${recordingSid}.mp3"`
+    });
+
+    response.body.pipe(res);
+  } catch (error) {
+    console.error('Error fetching recording:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Health check
