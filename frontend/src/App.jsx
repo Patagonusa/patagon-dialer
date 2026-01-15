@@ -686,6 +686,7 @@ function MainApp({ user, onLogout }) {
   const [dispositionFilter, setDispositionFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sortOrder, setSortOrder] = useState('desc')
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [toast, setToast] = useState(null)
@@ -1182,10 +1183,34 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Close sidebar when clicking a nav item on mobile
+  const handleNavClick = (view) => {
+    setCurrentView(view)
+    if (view === 'leads') setSelectedLead(null)
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="app">
+      {/* Mobile Menu Toggle */}
+      <button
+        className={`mobile-menu-toggle ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label="Toggle menu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      {/* Sidebar Overlay for Mobile */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      ></div>
+
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <img src="/logo.png" alt="Patagon" className="sidebar-logo" />
           <h1>Patagon Dialer</h1>
@@ -1194,32 +1219,32 @@ function MainApp({ user, onLogout }) {
         <nav>
           <button
             className={currentView === 'leads' || currentView === 'leadCard' ? 'active' : ''}
-            onClick={() => { setCurrentView('leads'); setSelectedLead(null) }}
+            onClick={() => handleNavClick('leads')}
           >
             {t.leads}
           </button>
           <button
             className={currentView === 'inbound' ? 'active' : ''}
-            onClick={() => setCurrentView('inbound')}
+            onClick={() => handleNavClick('inbound')}
           >
             {t.inboundSMS} {alertCount > 0 && <span className="badge">{alertCount}</span>}
           </button>
           <button
             className={currentView === 'appointments' ? 'active' : ''}
-            onClick={() => setCurrentView('appointments')}
+            onClick={() => handleNavClick('appointments')}
           >
             {t.appointments}
           </button>
           <button
             className={currentView === 'salespeople' ? 'active' : ''}
-            onClick={() => setCurrentView('salespeople')}
+            onClick={() => handleNavClick('salespeople')}
           >
             {t.salespeople}
           </button>
           {isAdmin && (
             <button
               className={currentView === 'users' ? 'active' : ''}
-              onClick={() => setCurrentView('users')}
+              onClick={() => handleNavClick('users')}
             >
               {t.userManagement}
             </button>
@@ -1227,12 +1252,12 @@ function MainApp({ user, onLogout }) {
         </nav>
         {/* Quick Actions */}
         <div className="quick-actions">
-          <button className="quick-btn sms" onClick={() => setShowQuickSMS(true)}>
+          <button className="quick-btn sms" onClick={() => { setShowQuickSMS(true); setSidebarOpen(false) }}>
             💬 SMS
           </button>
           <button
             className={`quick-btn call ${deviceStatus === 'ready' ? 'ready' : ''}`}
-            onClick={() => setShowQuickCall(true)}
+            onClick={() => { setShowQuickCall(true); setSidebarOpen(false) }}
             disabled={deviceStatus !== 'ready'}
           >
             📞 {t.call}
