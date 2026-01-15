@@ -1191,3 +1191,87 @@ body {
 .lead-item {
   grid-template-columns: 2fr 1fr 1fr 100px 100px 80px;
 }
+
+/* Language Toggle */
+.language-toggle {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.lang-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  color: var(--ice-blue);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lang-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lang-btn.active {
+  background: var(--royal-blue);
+  border-color: var(--royal-blue);
+  color: var(--pure-white);
+}
+
+/* Login Page Language Toggle */
+.login-container .language-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.login-container .lang-btn {
+  border-color: var(--ice-blue);
+  color: var(--mountain-blue);
+}
+
+.login-container .lang-btn:hover {
+  background: var(--cloud-white);
+}
+
+.login-container .lang-btn.active {
+  background: var(--royal-blue);
+  border-color: var(--royal-blue);
+  color: var(--pure-white);
+}
+
+.login-container {
+  position: relative;
+}
+
+/* Form Grid for Create Lead Modal */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.form-grid .form-group {
+  margin-bottom: 0;
+}
+
+.modal-large {
+  max-width: 700px;
+}
+
+/* Success Button */
+.btn-success {
+  background: #059669;
+  color: var(--pure-white);
+}
+
+.btn-success:hover {
+  background: #047857;
+}
+
+.btn-success:disabled {
+  background: #9CA3AF;
+}

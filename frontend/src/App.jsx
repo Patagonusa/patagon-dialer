@@ -1,43 +1,435 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
-// Disposition types - Spanish
-const DISPOSITIONS = [
-  { value: 'appointment_set', label: 'Cita Agendada', color: '#4caf50' },
-  { value: 'callback', label: 'Devolver Llamada', color: '#ff9800' },
-  { value: 'not_interested', label: 'No Interesado', color: '#9e9e9e' },
-  { value: 'no_answer', label: 'No Contesta', color: '#f44336' },
-  { value: 'voicemail', label: 'Buzón de Voz', color: '#9c27b0' },
-  { value: 'wrong_number', label: 'Número Equivocado', color: '#795548' },
-  { value: 'busy', label: 'Ocupado', color: '#ff5722' },
-  { value: 'disconnected', label: 'Desconectado', color: '#607d8b' }
+// Language Context
+const LanguageContext = createContext()
+
+// Translations
+const TRANSLATIONS = {
+  es: {
+    // General
+    leadManagementSystem: 'Sistema de Gestión de Leads',
+    login: 'Iniciar Sesión',
+    register: 'Registrarse',
+    logout: 'Cerrar Sesión',
+    cancel: 'Cancelar',
+    save: 'Guardar',
+    add: 'Agregar',
+    view: 'Ver',
+    send: 'Enviar',
+    uploading: 'Subiendo...',
+    upload: 'Subir',
+    loading: 'Cargando...',
+    pleaseWait: 'Por favor espere...',
+    clear: 'Limpiar',
+    search: 'Buscar',
+    admin: 'Administrador',
+    user: 'Usuario',
+
+    // Auth
+    email: 'Correo Electrónico',
+    password: 'Contraseña',
+    firstName: 'Nombre',
+    lastName: 'Apellido',
+    alreadyHaveAccount: '¿Ya tienes cuenta?',
+    needAccount: '¿Necesitas una cuenta?',
+    registrationSuccess: 'Registro exitoso. Por favor espere la aprobación del administrador.',
+    errorOccurred: 'Ocurrió un error',
+
+    // Navigation
+    leads: 'Leads',
+    inboundSMS: 'SMS Entrantes',
+    appointments: 'Citas',
+    salespeople: 'Vendedores',
+    userManagement: 'Gestión de Usuarios',
+
+    // Leads
+    leadDetails: 'Detalles del Lead',
+    backToList: 'Volver a Lista',
+    addDisposition: 'Agregar Disposición',
+    scheduleAppointment: 'Agendar Cita',
+    previousLead: '← Lead Anterior',
+    nextLead: 'Siguiente Lead →',
+    leadOf: 'Lead {current} de {total}',
+    searchLeads: 'Buscar leads...',
+    uploadExcel: 'Subir Excel',
+    createLead: 'Crear Lead',
+    noLeadsFound: 'No se encontraron leads',
+    uploadToStart: 'Sube un archivo Excel para comenzar',
+    noLeadsAvailable: 'No hay leads disponibles',
+
+    // Lead fields
+    name: 'Nombre',
+    phone: 'Teléfono',
+    phone2: 'Teléfono 2',
+    phone3: 'Teléfono 3',
+    city: 'Ciudad',
+    state: 'Estado',
+    zip: 'Código Postal',
+    address: 'Dirección',
+    cityStateZip: 'Ciudad, Estado, CP',
+    mainPhone: 'Teléfono Principal',
+    leadDate: 'Fecha del Lead',
+    source: 'Fuente',
+    jobGroup: 'Grupo de Trabajo',
+    date: 'Fecha',
+    actions: 'Acciones',
+    status: 'Estado',
+
+    // Filters
+    disposition: 'Disposición',
+    allDispositions: 'Todas',
+    sortBy: 'Ordenar',
+    createdAt: 'Fecha de Creación',
+
+    // Dispositions
+    appointmentSet: 'Cita Agendada',
+    callback: 'Devolver Llamada',
+    notInterested: 'No Interesado',
+    noAnswer: 'No Contesta',
+    voicemail: 'Buzón de Voz',
+    wrongNumber: 'Número Equivocado',
+    busy: 'Ocupado',
+    disconnected: 'Desconectado',
+
+    // Status
+    all: 'Todos',
+    new: 'Nuevo',
+    closed: 'Cerrado',
+    pending: 'Pendiente',
+    approved: 'Aprobado',
+    rejected: 'Rechazado',
+    unread: 'No Leído',
+    read: 'Leído',
+    followUp: 'Seguimiento',
+    scheduled: 'Programada',
+    dispatched: 'Despachada',
+    completed: 'Completada',
+
+    // Calls
+    callHistory: 'Historial de Llamadas',
+    noCallsRecorded: 'No hay llamadas registradas',
+    inbound: 'Entrante',
+    outbound: 'Saliente',
+    call: 'Llamar',
+
+    // Notes
+    notes: 'Notas',
+    noNotesYet: 'Sin notas aún',
+    addNote: 'Agregar una nota...',
+    noteAdded: 'Nota agregada',
+
+    // SMS
+    smsConversation: 'Conversación SMS',
+    noMessagesYet: 'Sin mensajes aún',
+    writeMessage: 'Escribe un mensaje...',
+    messageSent: 'Mensaje enviado',
+
+    // Inbound
+    noInboundMessages: 'No hay mensajes entrantes',
+    inboundDescription: 'Cuando los clientes respondan a tus SMS, aparecerán aquí',
+
+    // Appointments
+    noAppointments: 'No hay citas',
+    scheduleFromLeads: 'Agenda citas desde las tarjetas de leads',
+    time: 'Hora',
+    assignSalesperson: 'Asignar Vendedor',
+    selectSalesperson: 'Seleccionar vendedor...',
+    createAppointment: 'Crear Cita',
+    appointmentCreated: 'Cita creada',
+    dispatchAppointment: 'Enviar Cita',
+    dispatchDescription: 'Enviar detalles de la cita por SMS al vendedor.',
+    salespersonPhone: 'Teléfono del Vendedor',
+    messagePreview: 'Vista Previa del Mensaje',
+    sendToSalesperson: 'Enviar a Vendedor',
+    appointmentSent: 'Cita enviada',
+    newAppointment: 'NUEVA CITA',
+
+    // Salespeople
+    addNewSalesperson: 'Agregar Nuevo Vendedor',
+    salespersonAdded: 'Vendedor agregado',
+    adding: 'Agregando...',
+    addSalesperson: 'Agregar Vendedor',
+
+    // Users
+    role: 'Rol',
+    approve: 'Aprobar',
+    reject: 'Rechazar',
+    userApproved: 'Usuario aprobado',
+    userRejected: 'Usuario rechazado',
+
+    // Upload
+    uploadLeads: 'Subir Leads',
+    clickToSelect: 'Clic para seleccionar archivo',
+    acceptedFormats: 'Acepta .xlsx, .xls, .csv',
+    selected: 'seleccionado',
+    expectedColumns: 'Columnas esperadas:',
+
+    // Disposition Modal
+    saveDisposition: 'Guardar Disposición',
+    dispositionSaved: 'Disposición guardada',
+    notesOptional: 'Notas (opcional)',
+    additionalNotes: 'Agregar notas adicionales...',
+
+    // Create Lead Modal
+    createNewLead: 'Crear Nuevo Lead',
+    createLeadBtn: 'Crear Lead',
+    creating: 'Creando...',
+    leadCreated: 'Lead creado exitosamente',
+    fillRequiredFields: 'Por favor llena los campos requeridos',
+
+    // Pagination
+    previous: 'Anterior',
+    next: 'Siguiente',
+    page: 'Página',
+    of: 'de',
+
+    // Errors
+    errorLoading: 'Error cargando',
+    errorSending: 'Error al enviar',
+    errorSaving: 'Error al guardar',
+    errorCreating: 'Error al crear',
+    errorUploading: 'Error al subir archivo',
+    errorApproving: 'Error al aprobar',
+    errorRejecting: 'Error al rechazar',
+    errorMarking: 'Error al marcar como leído'
+  },
+  en: {
+    // General
+    leadManagementSystem: 'Lead Management System',
+    login: 'Login',
+    register: 'Register',
+    logout: 'Logout',
+    cancel: 'Cancel',
+    save: 'Save',
+    add: 'Add',
+    view: 'View',
+    send: 'Send',
+    uploading: 'Uploading...',
+    upload: 'Upload',
+    loading: 'Loading...',
+    pleaseWait: 'Please wait...',
+    clear: 'Clear',
+    search: 'Search',
+    admin: 'Admin',
+    user: 'User',
+
+    // Auth
+    email: 'Email',
+    password: 'Password',
+    firstName: 'First Name',
+    lastName: 'Last Name',
+    alreadyHaveAccount: 'Already have an account?',
+    needAccount: 'Need an account?',
+    registrationSuccess: 'Registration successful. Please wait for admin approval.',
+    errorOccurred: 'An error occurred',
+
+    // Navigation
+    leads: 'Leads',
+    inboundSMS: 'Inbound SMS',
+    appointments: 'Appointments',
+    salespeople: 'Salespeople',
+    userManagement: 'User Management',
+
+    // Leads
+    leadDetails: 'Lead Details',
+    backToList: 'Back to List',
+    addDisposition: 'Add Disposition',
+    scheduleAppointment: 'Schedule Appointment',
+    previousLead: '← Previous Lead',
+    nextLead: 'Next Lead →',
+    leadOf: 'Lead {current} of {total}',
+    searchLeads: 'Search leads...',
+    uploadExcel: 'Upload Excel',
+    createLead: 'Create Lead',
+    noLeadsFound: 'No leads found',
+    uploadToStart: 'Upload an Excel file to get started',
+    noLeadsAvailable: 'No leads available',
+
+    // Lead fields
+    name: 'Name',
+    phone: 'Phone',
+    phone2: 'Phone 2',
+    phone3: 'Phone 3',
+    city: 'City',
+    state: 'State',
+    zip: 'Zip Code',
+    address: 'Address',
+    cityStateZip: 'City, State, Zip',
+    mainPhone: 'Main Phone',
+    leadDate: 'Lead Date',
+    source: 'Source',
+    jobGroup: 'Job Group',
+    date: 'Date',
+    actions: 'Actions',
+    status: 'Status',
+
+    // Filters
+    disposition: 'Disposition',
+    allDispositions: 'All',
+    sortBy: 'Sort by',
+    createdAt: 'Created Date',
+
+    // Dispositions
+    appointmentSet: 'Appointment Set',
+    callback: 'Callback',
+    notInterested: 'Not Interested',
+    noAnswer: 'No Answer',
+    voicemail: 'Voicemail',
+    wrongNumber: 'Wrong Number',
+    busy: 'Busy',
+    disconnected: 'Disconnected',
+
+    // Status
+    all: 'All',
+    new: 'New',
+    closed: 'Closed',
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    unread: 'Unread',
+    read: 'Read',
+    followUp: 'Follow Up',
+    scheduled: 'Scheduled',
+    dispatched: 'Dispatched',
+    completed: 'Completed',
+
+    // Calls
+    callHistory: 'Call History',
+    noCallsRecorded: 'No calls recorded',
+    inbound: 'Inbound',
+    outbound: 'Outbound',
+    call: 'Call',
+
+    // Notes
+    notes: 'Notes',
+    noNotesYet: 'No notes yet',
+    addNote: 'Add a note...',
+    noteAdded: 'Note added',
+
+    // SMS
+    smsConversation: 'SMS Conversation',
+    noMessagesYet: 'No messages yet',
+    writeMessage: 'Write a message...',
+    messageSent: 'Message sent',
+
+    // Inbound
+    noInboundMessages: 'No inbound messages',
+    inboundDescription: 'When customers reply to your SMS, they will appear here',
+
+    // Appointments
+    noAppointments: 'No appointments',
+    scheduleFromLeads: 'Schedule appointments from lead cards',
+    time: 'Time',
+    assignSalesperson: 'Assign Salesperson',
+    selectSalesperson: 'Select salesperson...',
+    createAppointment: 'Create Appointment',
+    appointmentCreated: 'Appointment created',
+    dispatchAppointment: 'Dispatch Appointment',
+    dispatchDescription: 'Send appointment details via SMS to salesperson.',
+    salespersonPhone: 'Salesperson Phone',
+    messagePreview: 'Message Preview',
+    sendToSalesperson: 'Send to Salesperson',
+    appointmentSent: 'Appointment sent',
+    newAppointment: 'NEW APPOINTMENT',
+
+    // Salespeople
+    addNewSalesperson: 'Add New Salesperson',
+    salespersonAdded: 'Salesperson added',
+    adding: 'Adding...',
+    addSalesperson: 'Add Salesperson',
+
+    // Users
+    role: 'Role',
+    approve: 'Approve',
+    reject: 'Reject',
+    userApproved: 'User approved',
+    userRejected: 'User rejected',
+
+    // Upload
+    uploadLeads: 'Upload Leads',
+    clickToSelect: 'Click to select file',
+    acceptedFormats: 'Accepts .xlsx, .xls, .csv',
+    selected: 'selected',
+    expectedColumns: 'Expected columns:',
+
+    // Disposition Modal
+    saveDisposition: 'Save Disposition',
+    dispositionSaved: 'Disposition saved',
+    notesOptional: 'Notes (optional)',
+    additionalNotes: 'Add additional notes...',
+
+    // Create Lead Modal
+    createNewLead: 'Create New Lead',
+    createLeadBtn: 'Create Lead',
+    creating: 'Creating...',
+    leadCreated: 'Lead created successfully',
+    fillRequiredFields: 'Please fill required fields',
+
+    // Pagination
+    previous: 'Previous',
+    next: 'Next',
+    page: 'Page',
+    of: 'of',
+
+    // Errors
+    errorLoading: 'Error loading',
+    errorSending: 'Error sending',
+    errorSaving: 'Error saving',
+    errorCreating: 'Error creating',
+    errorUploading: 'Error uploading file',
+    errorApproving: 'Error approving',
+    errorRejecting: 'Error rejecting',
+    errorMarking: 'Error marking as read'
+  }
+}
+
+// Get disposition labels based on language
+const getDispositions = (lang) => [
+  { value: 'appointment_set', label: TRANSLATIONS[lang].appointmentSet, color: '#4caf50' },
+  { value: 'callback', label: TRANSLATIONS[lang].callback, color: '#ff9800' },
+  { value: 'not_interested', label: TRANSLATIONS[lang].notInterested, color: '#9e9e9e' },
+  { value: 'no_answer', label: TRANSLATIONS[lang].noAnswer, color: '#f44336' },
+  { value: 'voicemail', label: TRANSLATIONS[lang].voicemail, color: '#9c27b0' },
+  { value: 'wrong_number', label: TRANSLATIONS[lang].wrongNumber, color: '#795548' },
+  { value: 'busy', label: TRANSLATIONS[lang].busy, color: '#ff5722' },
+  { value: 'disconnected', label: TRANSLATIONS[lang].disconnected, color: '#607d8b' }
 ]
 
-// Status labels in Spanish
-const STATUS_LABELS = {
-  all: 'Todos',
-  new: 'Nuevo',
-  callback: 'Devolver',
-  appointment: 'Cita',
-  no_answer: 'No Contesta',
-  closed: 'Cerrado',
-  appointment_set: 'Cita Agendada',
-  not_interested: 'No Interesado',
-  voicemail: 'Buzón',
-  wrong_number: 'Número Equivocado',
-  busy: 'Ocupado',
-  disconnected: 'Desconectado',
-  pending: 'Pendiente',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
-  unread: 'No Leído',
-  read: 'Leído',
-  follow_up: 'Seguimiento',
-  scheduled: 'Programada',
-  dispatched: 'Despachada',
-  completed: 'Completada'
+// Get status labels based on language
+const getStatusLabels = (lang) => ({
+  all: TRANSLATIONS[lang].all,
+  new: TRANSLATIONS[lang].new,
+  callback: TRANSLATIONS[lang].callback,
+  appointment: TRANSLATIONS[lang].appointmentSet,
+  no_answer: TRANSLATIONS[lang].noAnswer,
+  closed: TRANSLATIONS[lang].closed,
+  appointment_set: TRANSLATIONS[lang].appointmentSet,
+  not_interested: TRANSLATIONS[lang].notInterested,
+  voicemail: TRANSLATIONS[lang].voicemail,
+  wrong_number: TRANSLATIONS[lang].wrongNumber,
+  busy: TRANSLATIONS[lang].busy,
+  disconnected: TRANSLATIONS[lang].disconnected,
+  pending: TRANSLATIONS[lang].pending,
+  approved: TRANSLATIONS[lang].approved,
+  rejected: TRANSLATIONS[lang].rejected,
+  unread: TRANSLATIONS[lang].unread,
+  read: TRANSLATIONS[lang].read,
+  follow_up: TRANSLATIONS[lang].followUp,
+  scheduled: TRANSLATIONS[lang].scheduled,
+  dispatched: TRANSLATIONS[lang].dispatched,
+  completed: TRANSLATIONS[lang].completed
+})
+
+// Custom hook for translations
+function useTranslation() {
+  const { lang, setLang } = useContext(LanguageContext)
+  const t = TRANSLATIONS[lang]
+  const DISPOSITIONS = getDispositions(lang)
+  const STATUS_LABELS = getStatusLabels(lang)
+  return { t, lang, setLang, DISPOSITIONS, STATUS_LABELS }
 }
 
 // API helper with auth
@@ -66,6 +458,7 @@ api.interceptors.response.use(
 function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [lang, setLang] = useState(() => localStorage.getItem('lang') || 'es')
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -75,6 +468,10 @@ function App() {
     }
     setIsLoading(false)
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('lang', lang)
+  }, [lang])
 
   const handleLogin = (userData, token) => {
     localStorage.setItem('token', token)
@@ -92,15 +489,42 @@ function App() {
     return <div className="loading-screen"><div className="spinner"></div></div>
   }
 
-  if (!user) {
-    return <LoginPage onLogin={handleLogin} />
-  }
+  return (
+    <LanguageContext.Provider value={{ lang, setLang }}>
+      {!user ? (
+        <LoginPage onLogin={handleLogin} />
+      ) : (
+        <MainApp user={user} onLogout={handleLogout} />
+      )}
+    </LanguageContext.Provider>
+  )
+}
 
-  return <MainApp user={user} onLogout={handleLogout} />
+// ==================== LANGUAGE TOGGLE ====================
+function LanguageToggle() {
+  const { lang, setLang } = useTranslation()
+
+  return (
+    <div className="language-toggle">
+      <button
+        className={`lang-btn ${lang === 'es' ? 'active' : ''}`}
+        onClick={() => setLang('es')}
+      >
+        ES
+      </button>
+      <button
+        className={`lang-btn ${lang === 'en' ? 'active' : ''}`}
+        onClick={() => setLang('en')}
+      >
+        EN
+      </button>
+    </div>
+  )
 }
 
 // ==================== LOGIN PAGE ====================
 function LoginPage({ onLogin }) {
+  const { t } = useTranslation()
   const [isRegister, setIsRegister] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -121,7 +545,7 @@ function LoginPage({ onLogin }) {
         await axios.post(`${API_URL}/api/auth/register`, {
           email, password, first_name: firstName, last_name: lastName
         })
-        setSuccess('Registro exitoso. Por favor espere la aprobación del administrador.')
+        setSuccess(t.registrationSuccess)
         setIsRegister(false)
         setEmail('')
         setPassword('')
@@ -132,7 +556,7 @@ function LoginPage({ onLogin }) {
         onLogin(res.data.user, res.data.token)
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Ocurrió un error')
+      setError(err.response?.data?.error || t.errorOccurred)
     }
     setLoading(false)
   }
@@ -140,10 +564,11 @@ function LoginPage({ onLogin }) {
   return (
     <div className="login-page">
       <div className="login-container">
+        <LanguageToggle />
         <div className="login-header">
           <img src="/logo.png" alt="Patagon" className="login-logo" />
           <h1>Patagon Dialer</h1>
-          <p>Sistema de Gestión de Leads</p>
+          <p>{t.leadManagementSystem}</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -153,7 +578,7 @@ function LoginPage({ onLogin }) {
           {isRegister && (
             <div className="form-row">
               <div className="form-group">
-                <label>Nombre</label>
+                <label>{t.firstName}</label>
                 <input
                   type="text"
                   value={firstName}
@@ -162,7 +587,7 @@ function LoginPage({ onLogin }) {
                 />
               </div>
               <div className="form-group">
-                <label>Apellido</label>
+                <label>{t.lastName}</label>
                 <input
                   type="text"
                   value={lastName}
@@ -174,7 +599,7 @@ function LoginPage({ onLogin }) {
           )}
 
           <div className="form-group">
-            <label>Correo Electrónico</label>
+            <label>{t.email}</label>
             <input
               type="email"
               value={email}
@@ -184,7 +609,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="form-group">
-            <label>Contraseña</label>
+            <label>{t.password}</label>
             <input
               type="password"
               value={password}
@@ -194,15 +619,15 @@ function LoginPage({ onLogin }) {
           </div>
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Por favor espere...' : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
+            {loading ? t.pleaseWait : (isRegister ? t.register : t.login)}
           </button>
         </form>
 
         <div className="login-footer">
           {isRegister ? (
-            <p>¿Ya tienes cuenta? <button onClick={() => setIsRegister(false)}>Iniciar Sesión</button></p>
+            <p>{t.alreadyHaveAccount} <button onClick={() => setIsRegister(false)}>{t.login}</button></p>
           ) : (
-            <p>¿Necesitas una cuenta? <button onClick={() => setIsRegister(true)}>Registrarse</button></p>
+            <p>{t.needAccount} <button onClick={() => setIsRegister(true)}>{t.register}</button></p>
           )}
         </div>
       </div>
@@ -212,6 +637,7 @@ function LoginPage({ onLogin }) {
 
 // ==================== MAIN APP ====================
 function MainApp({ user, onLogout }) {
+  const { t, DISPOSITIONS, STATUS_LABELS } = useTranslation()
   const [currentView, setCurrentView] = useState('leads')
   const [leads, setLeads] = useState([])
   const [selectedLead, setSelectedLead] = useState(null)
@@ -238,6 +664,7 @@ function MainApp({ user, onLogout }) {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showDispatchModal, setShowDispatchModal] = useState(false)
+  const [showCreateLeadModal, setShowCreateLeadModal] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
 
   const isAdmin = user.role === 'admin'
@@ -479,7 +906,20 @@ function MainApp({ user, onLogout }) {
       fetchLeads()
     } catch (error) {
       console.error('Error uploading file:', error)
-      showToast(error.response?.data?.error || 'Error al subir archivo', 'error')
+      showToast(error.response?.data?.error || t.errorUploading, 'error')
+    }
+  }
+
+  // Create lead manually
+  const createLead = async (leadData) => {
+    try {
+      await api.post('/api/leads', leadData)
+      showToast(t.leadCreated)
+      setShowCreateLeadModal(false)
+      fetchLeads()
+    } catch (error) {
+      console.error('Error creating lead:', error)
+      showToast(error.response?.data?.error || t.errorCreating, 'error')
     }
   }
 
@@ -537,47 +977,48 @@ function MainApp({ user, onLogout }) {
         <div className="sidebar-header">
           <img src="/logo.png" alt="Patagon" className="sidebar-logo" />
           <h1>Patagon Dialer</h1>
+          <LanguageToggle />
         </div>
         <nav>
           <button
             className={currentView === 'leads' || currentView === 'leadCard' ? 'active' : ''}
             onClick={() => { setCurrentView('leads'); setSelectedLead(null) }}
           >
-            Leads
+            {t.leads}
           </button>
           <button
             className={currentView === 'inbound' ? 'active' : ''}
             onClick={() => setCurrentView('inbound')}
           >
-            SMS Entrantes {alertCount > 0 && <span className="badge">{alertCount}</span>}
+            {t.inboundSMS} {alertCount > 0 && <span className="badge">{alertCount}</span>}
           </button>
           <button
             className={currentView === 'appointments' ? 'active' : ''}
             onClick={() => setCurrentView('appointments')}
           >
-            Citas
+            {t.appointments}
           </button>
           <button
             className={currentView === 'salespeople' ? 'active' : ''}
             onClick={() => setCurrentView('salespeople')}
           >
-            Vendedores
+            {t.salespeople}
           </button>
           {isAdmin && (
             <button
               className={currentView === 'users' ? 'active' : ''}
               onClick={() => setCurrentView('users')}
             >
-              Gestión de Usuarios
+              {t.userManagement}
             </button>
           )}
         </nav>
         <div className="sidebar-footer">
           <div className="user-info">
             <span>{user.first_name} {user.last_name}</span>
-            <small>{user.role === 'admin' ? 'Administrador' : 'Usuario'}</small>
+            <small>{user.role === 'admin' ? t.admin : t.user}</small>
           </div>
-          <button className="logout-btn" onClick={onLogout}>Cerrar Sesión</button>
+          <button className="logout-btn" onClick={onLogout}>{t.logout}</button>
         </div>
       </aside>
 
@@ -587,19 +1028,22 @@ function MainApp({ user, onLogout }) {
         {currentView === 'leads' && (
           <>
             <header className="header">
-              <h2>Leads ({pagination.total})</h2>
+              <h2>{t.leads} ({pagination.total})</h2>
               <div className="header-actions">
                 <input
                   type="text"
                   className="search-input"
-                  placeholder="Buscar leads..."
+                  placeholder={t.searchLeads}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
                 />
+                <button className="btn btn-success" onClick={() => setShowCreateLeadModal(true)}>
+                  + {t.createLead}
+                </button>
                 {isAdmin && (
                   <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-                    Subir Excel
+                    {t.uploadExcel}
                   </button>
                 )}
               </div>
@@ -610,7 +1054,7 @@ function MainApp({ user, onLogout }) {
               <div className="filters-row">
                 {/* Status Filter */}
                 <div className="filter-group">
-                  <label>Estado:</label>
+                  <label>{t.status}:</label>
                   <div className="filter-tabs">
                     {['all', 'new', 'callback', 'appointment', 'no_answer', 'closed'].map(status => (
                       <button
@@ -626,13 +1070,13 @@ function MainApp({ user, onLogout }) {
 
                 {/* Disposition Filter */}
                 <div className="filter-group">
-                  <label>Disposición:</label>
+                  <label>{t.disposition}:</label>
                   <select
                     value={dispositionFilter}
                     onChange={(e) => { setDispositionFilter(e.target.value); fetchLeads(1) }}
                     className="filter-select"
                   >
-                    <option value="all">Todas</option>
+                    <option value="all">{t.allDispositions}</option>
                     {DISPOSITIONS.map(d => (
                       <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
@@ -641,7 +1085,7 @@ function MainApp({ user, onLogout }) {
 
                 {/* Date Filter */}
                 <div className="filter-group">
-                  <label>Fecha:</label>
+                  <label>{t.date}:</label>
                   <input
                     type="date"
                     value={dateFilter}
@@ -650,23 +1094,23 @@ function MainApp({ user, onLogout }) {
                   />
                   {dateFilter && (
                     <button className="btn btn-small btn-secondary" onClick={() => { setDateFilter(''); fetchLeads(1) }}>
-                      Limpiar
+                      {t.clear}
                     </button>
                   )}
                 </div>
 
                 {/* Sort */}
                 <div className="filter-group">
-                  <label>Ordenar:</label>
+                  <label>{t.sortBy}:</label>
                   <select
                     value={sortBy}
                     onChange={(e) => { setSortBy(e.target.value); fetchLeads(1) }}
                     className="filter-select"
                   >
-                    <option value="created_at">Fecha de Creación</option>
-                    <option value="lead_date">Fecha del Lead</option>
-                    <option value="first_name">Nombre</option>
-                    <option value="status">Estado</option>
+                    <option value="created_at">{t.createdAt}</option>
+                    <option value="lead_date">{t.leadDate}</option>
+                    <option value="first_name">{t.name}</option>
+                    <option value="status">{t.status}</option>
                   </select>
                   <button
                     className="btn btn-small btn-secondary"
@@ -681,18 +1125,18 @@ function MainApp({ user, onLogout }) {
                 <div className="loading"><div className="spinner"></div></div>
               ) : leads.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No se encontraron leads</h3>
-                  <p>{isAdmin ? 'Sube un archivo Excel para comenzar' : 'No hay leads disponibles'}</p>
+                  <h3>{t.noLeadsFound}</h3>
+                  <p>{isAdmin ? t.uploadToStart : t.noLeadsAvailable}</p>
                 </div>
               ) : (
                 <div className="lead-list">
                   <div className="lead-list-header">
-                    <span>Nombre</span>
-                    <span>Teléfono</span>
-                    <span>Ciudad</span>
-                    <span>Fecha</span>
-                    <span>Estado</span>
-                    <span>Acciones</span>
+                    <span>{t.name}</span>
+                    <span>{t.phone}</span>
+                    <span>{t.city}</span>
+                    <span>{t.date}</span>
+                    <span>{t.status}</span>
+                    <span>{t.actions}</span>
                   </div>
                   {leads.map((lead, index) => (
                     <div key={lead.id} className="lead-item" onClick={() => selectLead(lead, index)}>
@@ -707,7 +1151,7 @@ function MainApp({ user, onLogout }) {
                         {STATUS_LABELS[lead.status] || lead.status}
                       </span>
                       <button className="btn btn-small btn-secondary" onClick={(e) => { e.stopPropagation(); selectLead(lead, index) }}>
-                        Ver
+                        {t.view}
                       </button>
                     </div>
                   ))}
@@ -721,14 +1165,14 @@ function MainApp({ user, onLogout }) {
                     disabled={pagination.page === 1}
                     onClick={() => fetchLeads(pagination.page - 1)}
                   >
-                    Anterior
+                    {t.previous}
                   </button>
-                  <span>Página {pagination.page} de {pagination.totalPages}</span>
+                  <span>{t.page} {pagination.page} {t.of} {pagination.totalPages}</span>
                   <button
                     disabled={pagination.page === pagination.totalPages}
                     onClick={() => fetchLeads(pagination.page + 1)}
                   >
-                    Siguiente
+                    {t.next}
                   </button>
                 </div>
               )}
@@ -740,16 +1184,16 @@ function MainApp({ user, onLogout }) {
         {currentView === 'leadCard' && selectedLead && (
           <>
             <header className="header">
-              <h2>Detalles del Lead</h2>
+              <h2>{t.leadDetails}</h2>
               <div className="header-actions">
                 <button className="btn btn-secondary" onClick={() => { setCurrentView('leads'); setSelectedLead(null) }}>
-                  Volver a Lista
+                  {t.backToList}
                 </button>
                 <button className="btn btn-primary" onClick={() => setShowDispositionModal(true)}>
-                  Agregar Disposición
+                  {t.addDisposition}
                 </button>
                 <button className="btn btn-success" onClick={() => setShowAppointmentModal(true)}>
-                  Agendar Cita
+                  {t.scheduleAppointment}
                 </button>
               </div>
             </header>
@@ -762,15 +1206,15 @@ function MainApp({ user, onLogout }) {
                   disabled={selectedLeadIndex === 0}
                   onClick={() => navigateLead(-1)}
                 >
-                  ← Lead Anterior
+                  {t.previousLead}
                 </button>
-                <span>Lead {selectedLeadIndex + 1} de {leads.length}</span>
+                <span>{t.leadOf.replace('{current}', selectedLeadIndex + 1).replace('{total}', leads.length)}</span>
                 <button
                   className="nav-btn"
                   disabled={selectedLeadIndex === leads.length - 1}
                   onClick={() => navigateLead(1)}
                 >
-                  Siguiente Lead →
+                  {t.nextLead}
                 </button>
               </div>
 
@@ -779,7 +1223,7 @@ function MainApp({ user, onLogout }) {
                 <div className="lead-card">
                   <div className="lead-card-header">
                     <h2>{selectedLead.first_name} {selectedLead.last_name}</h2>
-                    <p>{selectedLead.job_group} | Fuente: {selectedLead.source}</p>
+                    <p>{selectedLead.job_group} | {t.source}: {selectedLead.source}</p>
                     <span className={`status-badge status-${selectedLead.status}`}>
                       {STATUS_LABELS[selectedLead.status] || selectedLead.status}
                     </span>
@@ -788,27 +1232,27 @@ function MainApp({ user, onLogout }) {
                   <div className="lead-card-body">
                     <div className="lead-info-grid">
                       <div className="info-item">
-                        <label>Dirección</label>
+                        <label>{t.address}</label>
                         <span>{selectedLead.address}</span>
                       </div>
                       <div className="info-item">
-                        <label>Ciudad, Estado, CP</label>
+                        <label>{t.cityStateZip}</label>
                         <span>{selectedLead.city}, {selectedLead.state} {selectedLead.zip}</span>
                       </div>
                       <div className="info-item">
-                        <label>Teléfono Principal</label>
+                        <label>{t.mainPhone}</label>
                         <span>{selectedLead.phone}</span>
                       </div>
                       <div className="info-item">
-                        <label>Teléfono 2</label>
+                        <label>{t.phone2}</label>
                         <span>{selectedLead.phone2 || 'N/A'}</span>
                       </div>
                       <div className="info-item">
-                        <label>Teléfono 3</label>
+                        <label>{t.phone3}</label>
                         <span>{selectedLead.phone3 || 'N/A'}</span>
                       </div>
                       <div className="info-item">
-                        <label>Fecha del Lead</label>
+                        <label>{t.leadDate}</label>
                         <span>{selectedLead.lead_date || 'N/A'}</span>
                       </div>
                     </div>
@@ -817,17 +1261,17 @@ function MainApp({ user, onLogout }) {
                     <div className="phone-actions">
                       {selectedLead.phone && (
                         <a href={`tel:${selectedLead.phone}`} className="phone-btn">
-                          Llamar {selectedLead.phone}
+                          {t.call} {selectedLead.phone}
                         </a>
                       )}
                       {selectedLead.phone2 && (
                         <a href={`tel:${selectedLead.phone2}`} className="phone-btn">
-                          Llamar {selectedLead.phone2}
+                          {t.call} {selectedLead.phone2}
                         </a>
                       )}
                       {selectedLead.phone3 && (
                         <a href={`tel:${selectedLead.phone3}`} className="phone-btn">
-                          Llamar {selectedLead.phone3}
+                          {t.call} {selectedLead.phone3}
                         </a>
                       )}
                     </div>
@@ -1023,6 +1467,13 @@ function MainApp({ user, onLogout }) {
         <UploadModal
           onClose={() => setShowUploadModal(false)}
           onUpload={uploadFile}
+        />
+      )}
+
+      {showCreateLeadModal && (
+        <CreateLeadModal
+          onClose={() => setShowCreateLeadModal(false)}
+          onCreate={createLead}
         />
       )}
 
@@ -1286,6 +1737,7 @@ function AppointmentModal({ salespeople, onClose, onSave }) {
 
 // Upload Modal Component
 function UploadModal({ onClose, onUpload }) {
+  const { t } = useTranslation()
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
 
@@ -1301,7 +1753,7 @@ function UploadModal({ onClose, onUpload }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Subir Leads</h3>
+          <h3>{t.uploadLeads}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
@@ -1316,27 +1768,200 @@ function UploadModal({ onClose, onUpload }) {
               onChange={(e) => setFile(e.target.files[0])}
             />
             {file ? (
-              <p><strong>{file.name}</strong> seleccionado</p>
+              <p><strong>{file.name}</strong> {t.selected}</p>
             ) : (
               <>
-                <p><strong>Clic para seleccionar archivo</strong></p>
-                <p>Acepta .xlsx, .xls, .csv</p>
+                <p><strong>{t.clickToSelect}</strong></p>
+                <p>{t.acceptedFormats}</p>
               </>
             )}
           </div>
           <div style={{ fontSize: '0.85rem', color: '#666' }}>
-            <p><strong>Columnas esperadas:</strong></p>
+            <p><strong>{t.expectedColumns}</strong></p>
             <p>Name, Address, City, State, Zip, Phone, Phone 2, Phone 3, Job Group, Date, Source</p>
           </div>
         </div>
         <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
           <button
             className="btn btn-primary"
             disabled={!file || uploading}
             onClick={handleUpload}
           >
-            {uploading ? 'Subiendo...' : 'Subir'}
+            {uploading ? t.uploading : t.upload}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Create Lead Modal Component
+function CreateLeadModal({ onClose, onCreate }) {
+  const { t } = useTranslation()
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    phone2: '',
+    phone3: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    job_group: '',
+    source: 'Manual',
+    lead_date: new Date().toISOString().split('T')[0]
+  })
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  const handleSubmit = async () => {
+    if (!formData.first_name || !formData.phone) {
+      setError(t.fillRequiredFields)
+      return
+    }
+    setCreating(true)
+    setError('')
+    await onCreate(formData)
+    setCreating(false)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-large" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.createNewLead}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          {error && <div className="alert alert-error">{error}</div>}
+
+          <div className="form-grid">
+            <div className="form-group">
+              <label>{t.firstName} *</label>
+              <input
+                type="text"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.lastName}</label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.phone} *</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.phone2}</label>
+              <input
+                type="tel"
+                name="phone2"
+                value={formData.phone2}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.phone3}</label>
+              <input
+                type="tel"
+                name="phone3"
+                value={formData.phone3}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.address}</label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.city}</label>
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.state}</label>
+              <input
+                type="text"
+                name="state"
+                value={formData.state}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.zip}</label>
+              <input
+                type="text"
+                name="zip"
+                value={formData.zip}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.jobGroup}</label>
+              <input
+                type="text"
+                name="job_group"
+                value={formData.job_group}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.source}</label>
+              <input
+                type="text"
+                name="source"
+                value={formData.source}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>{t.leadDate}</label>
+              <input
+                type="date"
+                name="lead_date"
+                value={formData.lead_date}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-success"
+            disabled={creating}
+            onClick={handleSubmit}
+          >
+            {creating ? t.creating : t.createLeadBtn}
           </button>
         </div>
       </div>

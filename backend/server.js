@@ -439,6 +439,59 @@ app.get('/api/leads/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Create lead manually
+app.post('/api/leads', authMiddleware, async (req, res) => {
+  try {
+    const {
+      first_name,
+      last_name,
+      phone,
+      phone2,
+      phone3,
+      address,
+      city,
+      state,
+      zip,
+      job_group,
+      source,
+      lead_date
+    } = req.body;
+
+    if (!first_name || !phone) {
+      return res.status(400).json({ error: 'First name and phone are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .insert({
+        first_name,
+        last_name: last_name || '',
+        phone,
+        phone2: phone2 || null,
+        phone3: phone3 || null,
+        address: address || '',
+        city: city || '',
+        state: state || '',
+        zip: zip || '',
+        job_group: job_group || '',
+        source: source || 'Manual',
+        lead_date: lead_date || new Date().toISOString().split('T')[0],
+        status: 'new',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update lead
 app.put('/api/leads/:id', authMiddleware, async (req, res) => {
   try {
