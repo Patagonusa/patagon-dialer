@@ -5,6 +5,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const https = require('https');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const AccessToken = twilio.jwt.AccessToken;
@@ -1404,55 +1405,61 @@ app.post('/api/voice/connect', express.urlencoded({ extended: true }), (req, res
 
 // Proxy endpoint for Twilio recordings (so users don't need Twilio auth)
 // Accepts auth via header OR query param (needed for <audio> element)
-app.get('/api/recordings/:recordingSid', async (req, res) => {
+app.get('/api/recordings/:recordingSid', (req, res) => {
+  const { recordingSid } = req.params;
+  const { token } = req.query;
+
+  // Check auth from header or query param
+  const authToken = req.headers.authorization?.replace('Bearer ', '') || token;
+
+  if (!authToken) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Verify token
   try {
-    const { recordingSid } = req.params;
-    const { token } = req.query;
+    jwt.verify(authToken, JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 
-    // Check auth from header or query param
-    const authToken = req.headers.authorization?.replace('Bearer ', '') || token;
+  // Validate recording SID format
+  if (!recordingSid || !recordingSid.startsWith('RE')) {
+    return res.status(400).json({ error: 'Invalid recording ID' });
+  }
 
-    if (!authToken) {
-      return res.status(401).json({ error: 'Authentication required' });
+  // Fetch recording from Twilio with authentication using https module
+  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+
+  const options = {
+    hostname: 'api.twilio.com',
+    path: `/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`,
+    method: 'GET',
+    headers: {
+      'Authorization': `Basic ${auth}`
+    }
+  };
+
+  const proxyReq = https.request(options, (proxyRes) => {
+    if (proxyRes.statusCode !== 200) {
+      return res.status(proxyRes.statusCode).json({ error: 'Recording not found' });
     }
 
-    // Verify token
-    try {
-      jwt.verify(authToken, JWT_SECRET);
-    } catch (err) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-
-    // Validate recording SID format
-    if (!recordingSid || !recordingSid.startsWith('RE')) {
-      return res.status(400).json({ error: 'Invalid recording ID' });
-    }
-
-    // Fetch recording from Twilio with authentication
-    const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${recordingSid}.mp3`;
-
-    const response = await fetch(recordingUrl, {
-      headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64')
-      }
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'Recording not found' });
-    }
-
-    // Stream the recording to the client
     res.set({
       'Content-Type': 'audio/mpeg',
       'Content-Disposition': `inline; filename="${recordingSid}.mp3"`,
       'Cache-Control': 'private, max-age=3600'
     });
 
-    response.body.pipe(res);
-  } catch (error) {
+    proxyRes.pipe(res);
+  });
+
+  proxyReq.on('error', (error) => {
     console.error('Error fetching recording:', error);
     res.status(500).json({ error: error.message });
-  }
+  });
+
+  proxyReq.end();
 });
 
 // Health check
