@@ -1356,7 +1356,8 @@ function MainApp({ user, onLogout }) {
                 </div>
               ) : (
                 <div className="lead-list">
-                  <div className="lead-list-header">
+                  <div className="lead-list-header" style={{ gridTemplateColumns: '60px 2fr 1fr 1fr 100px 100px 80px' }}>
+                    <span>#</span>
                     <span>{t.name}</span>
                     <span>{t.phone}</span>
                     <span>{t.city}</span>
@@ -1365,16 +1366,17 @@ function MainApp({ user, onLogout }) {
                     <span>{t.actions}</span>
                   </div>
                   {leads.map((lead, index) => (
-                    <div key={lead.id} className="lead-item" onClick={() => selectLead(lead, index)}>
+                    <div key={lead.id} className="lead-item" style={{ gridTemplateColumns: '60px 2fr 1fr 1fr 100px 100px 80px' }} onClick={() => selectLead(lead, index)}>
+                      <span className="lead-number">#{lead.id}</span>
                       <div className="lead-name">
                         {lead.first_name} {lead.last_name}
                         <small>{lead.job_group}</small>
                       </div>
-                      <span>{lead.phone}</span>
+                      <span>{lead.phone || lead.cell}</span>
                       <span>{lead.city}, {lead.state}</span>
-                      <span>{lead.lead_date || '-'}</span>
-                      <span className={`status-badge status-${lead.status}`}>
-                        {STATUS_LABELS[lead.status] || lead.status}
+                      <span>{lead.lead_date || lead.appointment_date || '-'}</span>
+                      <span className={`status-badge status-${lead.status || lead.lead_status || 'new'}`}>
+                        {STATUS_LABELS[lead.status] || lead.status || lead.lead_status || 'New'}
                       </span>
                       <button className="btn btn-small btn-secondary" onClick={(e) => { e.stopPropagation(); selectLead(lead, index) }}>
                         {t.view}
@@ -1514,11 +1516,11 @@ function MainApp({ user, onLogout }) {
                       )}
                     </div>
 
-                    {/* Call History Section */}
-                    <CallHistorySection calls={callHistory} />
-
                     {/* Notes Section */}
                     <NotesSection lead={selectedLead} onAddNote={addNote} />
+
+                    {/* Call History Section */}
+                    <CallHistorySection calls={callHistory} />
                   </div>
                 </div>
 

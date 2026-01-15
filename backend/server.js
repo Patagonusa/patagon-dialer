@@ -837,14 +837,14 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
 
     if (clientIdentities.length === 0) {
       // No agents online - leave a message
-      twiml.say({ language: 'es-MX' }, 'Lo sentimos, no hay agentes disponibles en este momento. Por favor deje un mensaje después del tono.');
+      twiml.say({ language: 'en-US' }, 'Thank you for calling. No agents are available at the moment. Please leave a message after the tone.');
       twiml.record({
         maxLength: 120,
         transcribe: false,
         recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/recording'
       });
     } else {
-      twiml.say({ language: 'es-MX' }, 'Por favor espere mientras lo conectamos.');
+      twiml.say({ language: 'en-US' }, 'Thank you for calling. Please hold while we transfer your call.');
 
       // Dial all connected browser clients
       const dial = twiml.dial({
@@ -867,7 +867,7 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
   } catch (error) {
     console.error('Error handling incoming call:', error);
     const twiml = new twilio.twiml.VoiceResponse();
-    twiml.say({ language: 'es-MX' }, 'Lo sentimos, ocurrió un error. Por favor intente más tarde.');
+    twiml.say({ language: 'en-US' }, 'We apologize, an error has occurred. Please try again later.');
     res.type('text/xml');
     res.send(twiml.toString());
   }

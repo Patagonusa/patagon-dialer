@@ -1550,3 +1550,10 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Lead Number */
+.lead-number {
+  font-weight: 600;
+  color: var(--royal-blue);
+  font-size: 0.85rem;
+}
