@@ -35,6 +35,9 @@ const TWILIO_PHONE = process.env.TWILIO_PHONE;
 // Twilio client
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
+// Track online clients (in-memory store)
+const onlineClients = new Map(); // identity -> { userId, lastSeen }
+
 // Multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -746,6 +749,7 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
     const { From, To, CallSid } = req.body;
 
     console.log('Incoming call:', { From, To, CallSid });
+    console.log('Online clients:', Array.from(onlineClients.keys()));
 
     // Find lead by phone number
     const { data: lead } = await supabase
@@ -760,7 +764,7 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
       direction: 'inbound',
       from_number: From,
       to_number: To,
-      call_sid: CallSid,
+      twilio_sid: CallSid,
       status: 'ringing',
       created_at: new Date().toISOString()
     });
@@ -776,24 +780,41 @@ app.post('/api/webhook/call-incoming', express.urlencoded({ extended: true }), a
 
     // TwiML response - ring all connected browser clients
     const twiml = new twilio.twiml.VoiceResponse();
-    twiml.say({ language: 'es-MX' }, 'Por favor espere mientras lo conectamos.');
 
-    // Dial all connected browser clients
-    const dial = twiml.dial({
-      timeout: 30,
-      record: 'record-from-answer',
-      recordingStatusCallback: '/api/webhook/call-status'
-    });
+    // Get all online client identities
+    const clientIdentities = Array.from(onlineClients.keys());
 
-    // Ring all browser clients (they will see the incoming call)
-    dial.client('felipe_patagonusa_com'); // Default client identity
+    if (clientIdentities.length === 0) {
+      // No agents online - leave a message
+      twiml.say({ language: 'es-MX' }, 'Lo sentimos, no hay agentes disponibles en este momento. Por favor deje un mensaje después del tono.');
+      twiml.record({
+        maxLength: 120,
+        transcribe: false,
+        recordingStatusCallback: '/api/webhook/call-status'
+      });
+    } else {
+      twiml.say({ language: 'es-MX' }, 'Por favor espere mientras lo conectamos.');
+
+      // Dial all connected browser clients
+      const dial = twiml.dial({
+        timeout: 30,
+        record: 'record-from-answer',
+        recordingStatusCallback: '/api/webhook/call-status'
+      });
+
+      // Ring all online browser clients
+      for (const identity of clientIdentities) {
+        dial.client(identity);
+        console.log('Dialing client:', identity);
+      }
+    }
 
     res.type('text/xml');
     res.send(twiml.toString());
   } catch (error) {
     console.error('Error handling incoming call:', error);
     const twiml = new twilio.twiml.VoiceResponse();
-    twiml.say({ language: 'es-MX' }, 'Lo sentimos, no hay agentes disponibles. Por favor intente más tarde.');
+    twiml.say({ language: 'es-MX' }, 'Lo sentimos, ocurrió un error. Por favor intente más tarde.');
     res.type('text/xml');
     res.send(twiml.toString());
   }
@@ -897,41 +918,56 @@ app.post('/api/sms/send', authMiddleware, async (req, res) => {
 app.post('/api/webhook/sms', express.urlencoded({ extended: true }), async (req, res) => {
   try {
     const { From, Body, MessageSid } = req.body;
+    console.log('Incoming SMS:', { From, Body, MessageSid });
 
-    // Find lead by phone number
+    // Normalize phone number for comparison (remove + and any non-digits)
+    const normalizedFrom = From.replace(/\D/g, '');
+    const fromWithPlus = From.startsWith('+') ? From : `+${normalizedFrom}`;
+    const fromWithoutPlus = normalizedFrom;
+
+    // Try to find lead by various phone formats
     const { data: lead } = await supabase
       .from('leads')
       .select('id, first_name, last_name')
-      .or(`phone.eq.${From},phone2.eq.${From},phone3.eq.${From}`)
+      .or(`phone.eq.${fromWithPlus},phone.eq.${fromWithoutPlus},phone.ilike.%${normalizedFrom.slice(-10)},phone2.eq.${fromWithPlus},phone2.eq.${fromWithoutPlus},phone2.ilike.%${normalizedFrom.slice(-10)},phone3.eq.${fromWithPlus},phone3.eq.${fromWithoutPlus},phone3.ilike.%${normalizedFrom.slice(-10)}`)
+      .limit(1)
       .single();
 
-    if (lead) {
-      // Save conversation
-      const { data: conversation } = await supabase
-        .from('conversations')
-        .insert({
-          lead_id: lead.id,
-          direction: 'inbound',
-          message: Body,
-          phone: From,
-          twilio_sid: MessageSid,
-          status: 'received',
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+    console.log('Lead found:', lead ? lead.id : 'none');
 
-      // Create inbound alert for follow-up tracking
-      await supabase
-        .from('inbound_alerts')
-        .insert({
-          lead_id: lead.id,
-          conversation_id: conversation.id,
-          message: Body,
-          phone: From,
-          status: 'unread',
-          created_at: new Date().toISOString()
-        });
+    // Save conversation (even if no lead found)
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .insert({
+        lead_id: lead?.id || null,
+        direction: 'inbound',
+        message: Body,
+        phone: From,
+        twilio_sid: MessageSid,
+        status: 'received',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (convError) {
+      console.error('Error saving conversation:', convError);
+    }
+
+    // Create inbound alert for follow-up tracking
+    const { error: alertError } = await supabase
+      .from('inbound_alerts')
+      .insert({
+        lead_id: lead?.id || null,
+        conversation_id: conversation?.id || null,
+        message: Body,
+        phone: From,
+        status: 'unread',
+        created_at: new Date().toISOString()
+      });
+
+    if (alertError) {
+      console.error('Error saving alert:', alertError);
     }
 
     res.type('text/xml').send('<Response></Response>');
@@ -1196,6 +1232,14 @@ app.get('/api/voice/token', authMiddleware, async (req, res) => {
 
     accessToken.addGrant(voiceGrant);
 
+    // Register client as online
+    onlineClients.set(identity, {
+      userId: req.user.id,
+      email: req.user.email,
+      lastSeen: Date.now()
+    });
+    console.log('Client registered:', identity, 'Total online:', onlineClients.size);
+
     res.json({
       token: accessToken.toJwt(),
       identity
@@ -1205,6 +1249,27 @@ app.get('/api/voice/token', authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Heartbeat to keep client online status updated
+app.post('/api/voice/heartbeat', authMiddleware, (req, res) => {
+  const identity = req.user.email.replace(/[^a-zA-Z0-9]/g, '_');
+  if (onlineClients.has(identity)) {
+    onlineClients.get(identity).lastSeen = Date.now();
+  }
+  res.json({ ok: true });
+});
+
+// Clean up stale clients (older than 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  const staleTimeout = 5 * 60 * 1000; // 5 minutes
+  for (const [identity, data] of onlineClients.entries()) {
+    if (now - data.lastSeen > staleTimeout) {
+      onlineClients.delete(identity);
+      console.log('Client removed (stale):', identity);
+    }
+  }
+}, 60000); // Check every minute
 
 // TwiML for outbound calls from browser
 app.post('/api/voice/outbound', express.urlencoded({ extended: true }), (req, res) => {

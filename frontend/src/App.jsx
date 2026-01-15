@@ -713,6 +713,8 @@ function MainApp({ user, onLogout }) {
 
   // Initialize Twilio Device
   useEffect(() => {
+    let heartbeatInterval = null
+
     const initDevice = async () => {
       try {
         const res = await api.get('/api/voice/token')
@@ -756,6 +758,11 @@ function MainApp({ user, onLogout }) {
 
         await twilioDevice.register()
         setDevice(twilioDevice)
+
+        // Send heartbeat every 2 minutes to stay registered as online
+        heartbeatInterval = setInterval(() => {
+          api.post('/api/voice/heartbeat').catch(err => console.log('Heartbeat error:', err))
+        }, 2 * 60 * 1000)
       } catch (error) {
         console.error('Error initializing Twilio device:', error)
         setDeviceStatus('error')
@@ -767,6 +774,9 @@ function MainApp({ user, onLogout }) {
     return () => {
       if (device) {
         device.destroy()
+      }
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
       }
     }
   }, [])
