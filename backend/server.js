@@ -1056,7 +1056,7 @@ app.get('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
 app.post('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { disposition_type, notes } = req.body;
+    const { disposition_type, notes, appointment_date, appointment_time, salesperson_id } = req.body;
 
     const { data, error } = await supabase
       .from('dispositions')
@@ -1071,21 +1071,58 @@ app.post('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
 
     if (error) throw error;
 
-    // Update lead status based on disposition
+    // Update lead status and last_disposition based on disposition
     const statusMap = {
       'appointment_set': 'appointment',
       'not_interested': 'closed',
       'callback': 'callback',
       'no_answer': 'no_answer',
       'wrong_number': 'invalid',
-      'voicemail': 'voicemail'
+      'voicemail': 'voicemail',
+      'busy': 'busy',
+      'disconnected': 'disconnected'
     };
 
+    // Update lead status and last_disposition
+    const updateData = {
+      last_disposition: disposition_type,
+      updated_at: new Date().toISOString()
+    };
     if (statusMap[disposition_type]) {
-      await supabase
-        .from('leads')
-        .update({ status: statusMap[disposition_type], updated_at: new Date().toISOString() })
-        .eq('id', id);
+      updateData.status = statusMap[disposition_type];
+    }
+
+    await supabase
+      .from('leads')
+      .update(updateData)
+      .eq('id', id);
+
+    // If disposition is appointment_set, automatically create an appointment
+    if (disposition_type === 'appointment_set') {
+      const appointmentData = {
+        lead_id: id,
+        appointment_date: appointment_date || new Date().toISOString().split('T')[0],
+        appointment_time: appointment_time || '10:00',
+        notes: notes || 'Cita agendada desde disposición',
+        status: 'scheduled',
+        created_at: new Date().toISOString()
+      };
+
+      if (salesperson_id) {
+        appointmentData.salesperson_id = salesperson_id;
+      }
+
+      const { data: appointmentResult, error: appointmentError } = await supabase
+        .from('appointments')
+        .insert(appointmentData)
+        .select()
+        .single();
+
+      if (appointmentError) {
+        console.error('Error creating appointment from disposition:', appointmentError);
+      } else {
+        data.appointment = appointmentResult;
+      }
     }
 
     res.json(data);
@@ -1460,6 +1497,572 @@ app.get('/api/recordings/:recordingSid', (req, res) => {
   });
 
   proxyReq.end();
+});
+
+// ==================== VENDORS ENDPOINTS ====================
+
+// Get all vendors
+app.get('/api/vendors', authMiddleware, async (req, res) => {
+  try {
+    const { search, category, active = 'true' } = req.query;
+
+    let query = supabase
+      .from('vendors')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (active !== 'all') {
+      query = query.eq('active', active === 'true');
+    }
+
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching vendors:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single vendor
+app.get('/api/vendors/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create vendor
+app.post('/api/vendors', authMiddleware, async (req, res) => {
+  try {
+    const { name, company, phone, phone2, email, address, city, state, zip, category, notes } = req.body;
+
+    const { data, error } = await supabase
+      .from('vendors')
+      .insert({
+        name,
+        company,
+        phone,
+        phone2,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        category,
+        notes,
+        active: true,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update vendor
+app.put('/api/vendors/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, company, phone, phone2, email, address, city, state, zip, category, notes, active } = req.body;
+
+    const { data, error } = await supabase
+      .from('vendors')
+      .update({
+        name,
+        company,
+        phone,
+        phone2,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        category,
+        notes,
+        active,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete vendor (soft delete)
+app.delete('/api/vendors/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vendors')
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error deleting vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send SMS to vendor
+app.post('/api/vendors/:id/sms', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { message, phone } = req.body;
+
+    // Get vendor if phone not provided
+    let toPhone = phone;
+    if (!toPhone) {
+      const { data: vendor, error: vendorError } = await supabase
+        .from('vendors')
+        .select('phone')
+        .eq('id', id)
+        .single();
+
+      if (vendorError) throw vendorError;
+      toPhone = vendor.phone;
+    }
+
+    if (!toPhone) {
+      return res.status(400).json({ error: 'No phone number available' });
+    }
+
+    // Send SMS via Twilio
+    const twilioMessage = await twilioClient.messages.create({
+      body: message,
+      from: TWILIO_PHONE,
+      to: toPhone
+    });
+
+    // Save to vendor_messages
+    const { data, error } = await supabase
+      .from('vendor_messages')
+      .insert({
+        vendor_id: id,
+        direction: 'outbound',
+        message,
+        phone: toPhone,
+        twilio_sid: twilioMessage.sid,
+        status: twilioMessage.status,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error sending SMS to vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get vendor messages
+app.get('/api/vendors/:id/messages', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('vendor_messages')
+      .select('*')
+      .eq('vendor_id', id)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching vendor messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== PROJECTS ENDPOINTS ====================
+
+// Get all projects
+app.get('/api/projects', authMiddleware, async (req, res) => {
+  try {
+    const { status, search } = req.query;
+
+    let query = supabase
+      .from('projects')
+      .select(`
+        *,
+        leads (id, lead_number, first_name, last_name, phone, address, city, state, zip)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single project
+app.get('/api/projects/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        leads (id, lead_number, first_name, last_name, phone, address, city, state, zip, job_group),
+        project_vendors (
+          id,
+          role,
+          notes,
+          vendors (id, vendor_number, name, company, phone, email, category)
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create project (can be created from a lead)
+app.post('/api/projects', authMiddleware, async (req, res) => {
+  try {
+    const { lead_id, name, description, status, start_date, end_date, budget, notes } = req.body;
+
+    // If lead_id provided and no name, generate name from lead
+    let projectName = name;
+    if (lead_id && !name) {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('first_name, last_name, address')
+        .eq('id', lead_id)
+        .single();
+
+      if (lead) {
+        projectName = `${lead.first_name} ${lead.last_name} - ${lead.address || 'Project'}`;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({
+        lead_id,
+        name: projectName || 'New Project',
+        description,
+        status: status || 'pending',
+        start_date,
+        end_date,
+        budget,
+        notes,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // If created from lead, update lead status
+    if (lead_id) {
+      await supabase
+        .from('leads')
+        .update({ status: 'project', updated_at: new Date().toISOString() })
+        .eq('id', lead_id);
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error creating project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update project
+app.put('/api/projects/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, status, start_date, end_date, budget, actual_cost, notes } = req.body;
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update({
+        name,
+        description,
+        status,
+        start_date,
+        end_date,
+        budget,
+        actual_cost,
+        notes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add vendor to project
+app.post('/api/projects/:id/vendors', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vendor_id, role, notes } = req.body;
+
+    const { data, error } = await supabase
+      .from('project_vendors')
+      .insert({
+        project_id: id,
+        vendor_id,
+        role,
+        notes,
+        created_at: new Date().toISOString()
+      })
+      .select(`
+        *,
+        vendors (id, vendor_number, name, company, phone, email, category)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error adding vendor to project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remove vendor from project
+app.delete('/api/projects/:projectId/vendors/:vendorId', authMiddleware, async (req, res) => {
+  try {
+    const { projectId, vendorId } = req.params;
+
+    const { error } = await supabase
+      .from('project_vendors')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('vendor_id', vendorId);
+
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing vendor from project:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== LEAD VENDOR DISPATCH ====================
+
+// Dispatch lead info to vendor via SMS
+app.post('/api/leads/:id/dispatch-vendor', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vendor_id, message } = req.body;
+
+    // Get lead info
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (leadError) throw leadError;
+
+    // Get vendor info
+    const { data: vendor, error: vendorError } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('id', vendor_id)
+      .single();
+
+    if (vendorError) throw vendorError;
+
+    if (!vendor.phone) {
+      return res.status(400).json({ error: 'Vendor has no phone number' });
+    }
+
+    // Build dispatch message
+    const dispatchMessage = message ||
+      `Nuevo Lead #${lead.lead_number || lead.id.substring(0,8)}:\n` +
+      `Nombre: ${lead.first_name} ${lead.last_name}\n` +
+      `Dirección: ${lead.address || 'N/A'}, ${lead.city || ''} ${lead.state || ''} ${lead.zip || ''}\n` +
+      `Teléfono: ${lead.phone}\n` +
+      `Trabajo: ${lead.job_group || 'N/A'}`;
+
+    // Send SMS via Twilio
+    const twilioMessage = await twilioClient.messages.create({
+      body: dispatchMessage,
+      from: TWILIO_PHONE,
+      to: vendor.phone
+    });
+
+    // Save dispatch record
+    const { data, error } = await supabase
+      .from('lead_vendor_dispatches')
+      .insert({
+        lead_id: id,
+        vendor_id,
+        message: dispatchMessage,
+        twilio_sid: twilioMessage.sid,
+        status: twilioMessage.status,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ success: true, dispatch: data, message: twilioMessage });
+  } catch (error) {
+    console.error('Error dispatching lead to vendor:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get lead dispatches
+app.get('/api/leads/:id/dispatches', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('lead_vendor_dispatches')
+      .select(`
+        *,
+        vendors (id, vendor_number, name, company, phone)
+      `)
+      .eq('lead_id', id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching lead dispatches:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== OPEN DIALER (Call/Text any number) ====================
+
+// Call any phone number (open dialer)
+app.post('/api/dialer/call', authMiddleware, async (req, res) => {
+  try {
+    const { to, from } = req.body;
+
+    if (!to) {
+      return res.status(400).json({ error: 'Phone number (to) is required' });
+    }
+
+    // Generate TwiML for the call
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.dial({
+      callerId: from || TWILIO_PHONE
+    }).number(to);
+
+    res.json({
+      success: true,
+      to,
+      from: from || TWILIO_PHONE,
+      message: 'Use Twilio Voice SDK to make the call'
+    });
+  } catch (error) {
+    console.error('Error initiating open dialer call:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send SMS to any phone number (open dialer)
+app.post('/api/dialer/sms', authMiddleware, async (req, res) => {
+  try {
+    const { to, message } = req.body;
+
+    if (!to || !message) {
+      return res.status(400).json({ error: 'Phone number (to) and message are required' });
+    }
+
+    // Send SMS via Twilio
+    const twilioMessage = await twilioClient.messages.create({
+      body: message,
+      from: TWILIO_PHONE,
+      to
+    });
+
+    res.json({
+      success: true,
+      sid: twilioMessage.sid,
+      status: twilioMessage.status,
+      to,
+      message
+    });
+  } catch (error) {
+    console.error('Error sending SMS via open dialer:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Health check

@@ -210,7 +210,101 @@ const TRANSLATIONS = {
     dialerReady: 'Teléfono Listo',
     dialerConnecting: 'Conectando...',
     dialerOffline: 'Desconectado',
-    callFrom: 'Llamada de'
+    callFrom: 'Llamada de',
+
+    // Vendors
+    vendors: 'Proveedores',
+    addVendor: 'Agregar Proveedor',
+    editVendor: 'Editar Proveedor',
+    vendorName: 'Nombre del Proveedor',
+    company: 'Empresa',
+    category: 'Categoría',
+    noVendors: 'No hay proveedores',
+    addVendorsToStart: 'Agrega proveedores de materiales',
+    vendorAdded: 'Proveedor agregado',
+    vendorUpdated: 'Proveedor actualizado',
+    sendSMSToVendor: 'Enviar SMS a Proveedor',
+    vendorCategories: {
+      roofing: 'Techos',
+      materials: 'Materiales',
+      electrical: 'Eléctrico',
+      plumbing: 'Plomería',
+      hvac: 'Aire Acondicionado',
+      general: 'General',
+      other: 'Otro'
+    },
+
+    // Projects
+    projects: 'Proyectos',
+    createProject: 'Crear Proyecto',
+    editProject: 'Editar Proyecto',
+    projectName: 'Nombre del Proyecto',
+    projectDescription: 'Descripción',
+    budget: 'Presupuesto',
+    actualCost: 'Costo Real',
+    startDate: 'Fecha de Inicio',
+    endDate: 'Fecha de Fin',
+    noProjects: 'No hay proyectos',
+    createProjectFromLeads: 'Crea proyectos desde las tarjetas de leads',
+    projectCreated: 'Proyecto creado',
+    projectUpdated: 'Proyecto actualizado',
+    projectStatus: {
+      pending: 'Pendiente',
+      in_progress: 'En Progreso',
+      completed: 'Completado',
+      cancelled: 'Cancelado'
+    },
+    addVendorToProject: 'Agregar Proveedor al Proyecto',
+    projectVendors: 'Proveedores del Proyecto',
+    vendorRole: 'Rol del Proveedor',
+
+    // Open Dialer
+    openDialer: 'Marcador Libre',
+    dialAnyNumber: 'Marcar Cualquier Número',
+    enterPhoneNumber: 'Ingresa número telefónico',
+    sendSMS: 'Enviar SMS',
+    makeCall: 'Llamar',
+    smsSent: 'SMS enviado',
+
+    // Lead Dispatch to Vendor
+    dispatchToVendor: 'Enviar a Proveedor',
+    selectVendor: 'Seleccionar Proveedor',
+    dispatchMessage: 'Mensaje de Despacho',
+    leadDispatched: 'Lead enviado a proveedor',
+    dispatches: 'Despachos',
+    noDispatches: 'Sin despachos aún',
+
+    // Lead Number
+    leadNumber: 'Lead #',
+
+    // Additional modal translations
+    selectCategory: 'Seleccionar categoría',
+    roofing: 'Techos',
+    materials: 'Materiales',
+    electrical: 'Eléctrico',
+    plumbing: 'Plomería',
+    hvac: 'Aire Acondicionado',
+    other: 'Otro',
+    sendSMSTo: 'Enviar SMS a',
+    typeMessage: 'Escribe tu mensaje...',
+    message: 'Mensaje',
+    smsMessage: 'Mensaje SMS',
+    description: 'Descripción',
+    linkedLead: 'Lead Vinculado',
+    noLinkedLead: 'Sin lead vinculado',
+    pending: 'Pendiente',
+    in_progress: 'En Progreso',
+    completed: 'Completado',
+    cancelled: 'Cancelado',
+    chooseVendor: 'Selecciona un proveedor...',
+    dispatch: 'Enviar',
+    lead: 'Lead',
+    phoneNumber: 'Número Telefónico',
+    phoneNotReady: 'Teléfono no está listo',
+    enterPhone: 'Ingresa un número',
+    enterMessage: 'Escribe un mensaje',
+    call: 'Llamar',
+    edit: 'Editar'
   },
   en: {
     // General
@@ -413,7 +507,101 @@ const TRANSLATIONS = {
     dialerReady: 'Phone Ready',
     dialerConnecting: 'Connecting...',
     dialerOffline: 'Offline',
-    callFrom: 'Call from'
+    callFrom: 'Call from',
+
+    // Vendors
+    vendors: 'Vendors',
+    addVendor: 'Add Vendor',
+    editVendor: 'Edit Vendor',
+    vendorName: 'Vendor Name',
+    company: 'Company',
+    category: 'Category',
+    noVendors: 'No vendors',
+    addVendorsToStart: 'Add material vendors',
+    vendorAdded: 'Vendor added',
+    vendorUpdated: 'Vendor updated',
+    sendSMSToVendor: 'Send SMS to Vendor',
+    vendorCategories: {
+      roofing: 'Roofing',
+      materials: 'Materials',
+      electrical: 'Electrical',
+      plumbing: 'Plumbing',
+      hvac: 'HVAC',
+      general: 'General',
+      other: 'Other'
+    },
+
+    // Projects
+    projects: 'Projects',
+    createProject: 'Create Project',
+    editProject: 'Edit Project',
+    projectName: 'Project Name',
+    projectDescription: 'Description',
+    budget: 'Budget',
+    actualCost: 'Actual Cost',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    noProjects: 'No projects',
+    createProjectFromLeads: 'Create projects from lead cards',
+    projectCreated: 'Project created',
+    projectUpdated: 'Project updated',
+    projectStatus: {
+      pending: 'Pending',
+      in_progress: 'In Progress',
+      completed: 'Completed',
+      cancelled: 'Cancelled'
+    },
+    addVendorToProject: 'Add Vendor to Project',
+    projectVendors: 'Project Vendors',
+    vendorRole: 'Vendor Role',
+
+    // Open Dialer
+    openDialer: 'Open Dialer',
+    dialAnyNumber: 'Dial Any Number',
+    enterPhoneNumber: 'Enter phone number',
+    sendSMS: 'Send SMS',
+    makeCall: 'Call',
+    smsSent: 'SMS sent',
+
+    // Lead Dispatch to Vendor
+    dispatchToVendor: 'Dispatch to Vendor',
+    selectVendor: 'Select Vendor',
+    dispatchMessage: 'Dispatch Message',
+    leadDispatched: 'Lead dispatched to vendor',
+    dispatches: 'Dispatches',
+    noDispatches: 'No dispatches yet',
+
+    // Lead Number
+    leadNumber: 'Lead #',
+
+    // Additional modal translations
+    selectCategory: 'Select category',
+    roofing: 'Roofing',
+    materials: 'Materials',
+    electrical: 'Electrical',
+    plumbing: 'Plumbing',
+    hvac: 'HVAC',
+    other: 'Other',
+    sendSMSTo: 'Send SMS to',
+    typeMessage: 'Type your message...',
+    message: 'Message',
+    smsMessage: 'SMS Message',
+    description: 'Description',
+    linkedLead: 'Linked Lead',
+    noLinkedLead: 'No linked lead',
+    pending: 'Pending',
+    in_progress: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+    chooseVendor: 'Choose a vendor...',
+    dispatch: 'Dispatch',
+    lead: 'Lead',
+    phoneNumber: 'Phone Number',
+    phoneNotReady: 'Phone not ready',
+    enterPhone: 'Enter a phone number',
+    enterMessage: 'Enter a message',
+    call: 'Call',
+    edit: 'Edit'
   }
 }
 
@@ -710,6 +898,25 @@ function MainApp({ user, onLogout }) {
   const [showQuickSMS, setShowQuickSMS] = useState(false)
   const [showQuickCall, setShowQuickCall] = useState(false)
 
+  // Vendors states
+  const [vendors, setVendors] = useState([])
+  const [selectedVendor, setSelectedVendor] = useState(null)
+  const [showVendorModal, setShowVendorModal] = useState(false)
+  const [showVendorSMSModal, setShowVendorSMSModal] = useState(false)
+
+  // Projects states
+  const [projects, setProjects] = useState([])
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+
+  // Open Dialer states
+  const [openDialerPhone, setOpenDialerPhone] = useState('')
+  const [openDialerMessage, setOpenDialerMessage] = useState('')
+
+  // Lead Dispatch to Vendor states
+  const [showVendorDispatchModal, setShowVendorDispatchModal] = useState(false)
+  const [leadDispatches, setLeadDispatches] = useState([])
+
   const isAdmin = user.role === 'admin'
 
   // Initialize Twilio Device
@@ -967,9 +1174,94 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Fetch vendors
+  const fetchVendors = async () => {
+    try {
+      const res = await api.get('/api/vendors')
+      setVendors(res.data)
+    } catch (error) {
+      console.error('Error fetching vendors:', error)
+    }
+  }
+
+  // Fetch projects
+  const fetchProjects = async () => {
+    try {
+      const res = await api.get('/api/projects')
+      setProjects(res.data)
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+    }
+  }
+
+  // Fetch lead dispatches
+  const fetchLeadDispatches = async (leadId) => {
+    try {
+      const res = await api.get(`/api/leads/${leadId}/dispatches`)
+      setLeadDispatches(res.data)
+    } catch (error) {
+      console.error('Error fetching lead dispatches:', error)
+    }
+  }
+
+  // Create vendor
+  const createVendor = async (vendorData) => {
+    try {
+      const res = await api.post('/api/vendors', vendorData)
+      await fetchVendors()
+      showToast(t.vendorAdded)
+      return res.data
+    } catch (error) {
+      console.error('Error creating vendor:', error)
+      showToast(t.errorCreating)
+    }
+  }
+
+  // Create project from lead
+  const createProjectFromLead = async (leadId, projectData = {}) => {
+    try {
+      const res = await api.post('/api/projects', { lead_id: leadId, ...projectData })
+      await fetchProjects()
+      showToast(t.projectCreated)
+      return res.data
+    } catch (error) {
+      console.error('Error creating project:', error)
+      showToast(t.errorCreating)
+    }
+  }
+
+  // Dispatch lead to vendor
+  const dispatchLeadToVendor = async (leadId, vendorId, message) => {
+    try {
+      const res = await api.post(`/api/leads/${leadId}/dispatch-vendor`, {
+        vendor_id: vendorId,
+        message
+      })
+      await fetchLeadDispatches(leadId)
+      showToast(t.leadDispatched)
+      return res.data
+    } catch (error) {
+      console.error('Error dispatching lead:', error)
+      showToast(t.errorSending)
+    }
+  }
+
+  // Send SMS via open dialer
+  const sendOpenDialerSMS = async (phone, message) => {
+    try {
+      const res = await api.post('/api/dialer/sms', { to: phone, message })
+      showToast(t.smsSent)
+      return res.data
+    } catch (error) {
+      console.error('Error sending SMS:', error)
+      showToast(t.errorSending)
+    }
+  }
+
   useEffect(() => {
     fetchLeads()
     fetchSalespeople()
+    fetchVendors()
     fetchAlertCount()
     const interval = setInterval(fetchAlertCount, 30000)
     return () => clearInterval(interval)
@@ -982,6 +1274,10 @@ function MainApp({ user, onLogout }) {
       fetchUsers()
     } else if (currentView === 'inbound') {
       fetchInboundAlerts()
+    } else if (currentView === 'vendors') {
+      fetchVendors()
+    } else if (currentView === 'projects') {
+      fetchProjects()
     }
   }, [currentView, isAdmin])
 
@@ -1241,6 +1537,24 @@ function MainApp({ user, onLogout }) {
           >
             {t.salespeople}
           </button>
+          <button
+            className={currentView === 'vendors' ? 'active' : ''}
+            onClick={() => handleNavClick('vendors')}
+          >
+            {t.vendors}
+          </button>
+          <button
+            className={currentView === 'projects' ? 'active' : ''}
+            onClick={() => handleNavClick('projects')}
+          >
+            {t.projects}
+          </button>
+          <button
+            className={currentView === 'openDialer' ? 'active' : ''}
+            onClick={() => handleNavClick('openDialer')}
+          >
+            {t.openDialer}
+          </button>
           {isAdmin && (
             <button
               className={currentView === 'users' ? 'active' : ''}
@@ -1392,7 +1706,7 @@ function MainApp({ user, onLogout }) {
                   </div>
                   {leads.map((lead, index) => (
                     <div key={lead.id} className="lead-item" style={{ gridTemplateColumns: '60px 2fr 1fr 1fr 100px 100px 80px' }} onClick={() => selectLead(lead, index)}>
-                      <span className="lead-number">#{lead.id}</span>
+                      <span className="lead-number">L-{String(lead.lead_number || '').padStart(3, '0')}</span>
                       <div className="lead-name">
                         {lead.first_name} {lead.last_name}
                         <small>{lead.job_group}</small>
@@ -1448,6 +1762,15 @@ function MainApp({ user, onLogout }) {
                 <button className="btn btn-success" onClick={() => setShowAppointmentModal(true)}>
                   {t.scheduleAppointment}
                 </button>
+                <button className="btn btn-warning" onClick={async () => {
+                  const projectName = `${selectedLead.first_name} ${selectedLead.last_name} - ${selectedLead.address || 'Project'}`
+                  await createProjectFromLead(selectedLead.id, { name: projectName })
+                }}>
+                  {t.createProject}
+                </button>
+                <button className="btn btn-info" onClick={() => setShowVendorDispatchModal(true)}>
+                  {t.dispatchToVendor}
+                </button>
               </div>
             </header>
 
@@ -1475,7 +1798,10 @@ function MainApp({ user, onLogout }) {
                 {/* Lead Card */}
                 <div className="lead-card">
                   <div className="lead-card-header">
-                    <h2>{selectedLead.first_name} {selectedLead.last_name}</h2>
+                    <h2>
+                      <span className="lead-number">L-{String(selectedLead.lead_number || '').padStart(3, '0')}</span>
+                      {selectedLead.first_name} {selectedLead.last_name}
+                    </h2>
                     <p>{selectedLead.job_group} | {t.source}: {selectedLead.source}</p>
                     <span className={`status-badge status-${selectedLead.status}`}>
                       {STATUS_LABELS[selectedLead.status] || selectedLead.status}
@@ -1710,6 +2036,208 @@ function MainApp({ user, onLogout }) {
             </div>
           </>
         )}
+
+        {/* Vendors View */}
+        {currentView === 'vendors' && (
+          <>
+            <header className="header">
+              <h2>{t.vendors}</h2>
+              <button className="btn btn-primary" onClick={() => { setSelectedVendor(null); setShowVendorModal(true) }}>
+                + {t.addVendor}
+              </button>
+            </header>
+
+            <div className="content">
+              <div className="vendors-list">
+                <div className="lead-list-header" style={{ gridTemplateColumns: '80px 1fr 1fr 150px 120px' }}>
+                  <span>#</span>
+                  <span>{t.name}</span>
+                  <span>{t.company}</span>
+                  <span>{t.phone}</span>
+                  <span>{t.actions}</span>
+                </div>
+                {vendors.map(vendor => (
+                  <div key={vendor.id} className="lead-item" style={{ gridTemplateColumns: '80px 1fr 1fr 150px 120px' }}>
+                    <span className="vendor-number">V-{String(vendor.vendor_number).padStart(3, '0')}</span>
+                    <span>{vendor.name}</span>
+                    <span>{vendor.company || '-'}</span>
+                    <span>{vendor.phone || '-'}</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-small btn-secondary"
+                        onClick={() => { setSelectedVendor(vendor); setShowVendorModal(true) }}
+                        title={t.edit}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="btn btn-small btn-success"
+                        onClick={() => { setSelectedVendor(vendor); setShowVendorSMSModal(true) }}
+                        title="SMS"
+                        disabled={!vendor.phone}
+                      >
+                        💬
+                      </button>
+                      {device && deviceStatus === 'ready' && vendor.phone && (
+                        <button
+                          className="btn btn-small btn-primary"
+                          onClick={() => {
+                            const call = device.connect({ params: { To: vendor.phone } })
+                            setActiveCall(call)
+                            setCallStatus('connecting')
+                            call.on('accept', () => setCallStatus('connected'))
+                            call.on('disconnect', () => { setActiveCall(null); setCallStatus('ended'); setTimeout(() => setCallStatus(null), 2000) })
+                          }}
+                          title={t.call}
+                        >
+                          📞
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {vendors.length === 0 && (
+                  <div className="empty-state">
+                    <p>{t.noVendors}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Projects View */}
+        {currentView === 'projects' && (
+          <>
+            <header className="header">
+              <h2>{t.projects}</h2>
+            </header>
+
+            <div className="content">
+              <div className="projects-list">
+                <div className="lead-list-header" style={{ gridTemplateColumns: '80px 1fr 120px 120px 100px' }}>
+                  <span>#</span>
+                  <span>{t.projectName}</span>
+                  <span>{t.status}</span>
+                  <span>{t.lead}</span>
+                  <span>{t.actions}</span>
+                </div>
+                {projects.map(project => (
+                  <div key={project.id} className="lead-item" style={{ gridTemplateColumns: '80px 1fr 120px 120px 100px' }}>
+                    <span className="project-number">P-{String(project.project_number).padStart(3, '0')}</span>
+                    <span>{project.name}</span>
+                    <span className={`status-badge status-${project.status}`}>
+                      {t[project.status] || project.status}
+                    </span>
+                    <span>
+                      {project.lead ? `L-${String(project.lead.lead_number || '').padStart(3, '0')}` : '-'}
+                    </span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn btn-small btn-secondary"
+                        onClick={() => { setSelectedProject(project); setShowProjectModal(true) }}
+                        title={t.edit}
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {projects.length === 0 && (
+                  <div className="empty-state">
+                    <p>{t.noProjects}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Open Dialer View */}
+        {currentView === 'openDialer' && (
+          <>
+            <header className="header">
+              <h2>{t.openDialer}</h2>
+            </header>
+
+            <div className="content">
+              <div className="open-dialer-container" style={{ maxWidth: 500, margin: '0 auto', padding: 20 }}>
+                <div className="form-group">
+                  <label>{t.phoneNumber}</label>
+                  <input
+                    type="tel"
+                    value={openDialerPhone}
+                    onChange={(e) => setOpenDialerPhone(e.target.value)}
+                    placeholder="+1234567890"
+                    className="form-input"
+                    style={{ fontSize: 20, textAlign: 'center', padding: 15 }}
+                  />
+                </div>
+
+                <div className="dialer-actions" style={{ display: 'flex', gap: 15, justifyContent: 'center', marginTop: 20 }}>
+                  <button
+                    className="btn btn-success btn-large"
+                    onClick={() => {
+                      if (!device || deviceStatus !== 'ready') {
+                        showToast(t.phoneNotReady, 'error')
+                        return
+                      }
+                      if (!openDialerPhone) {
+                        showToast(t.enterPhone, 'error')
+                        return
+                      }
+                      const call = device.connect({ params: { To: openDialerPhone } })
+                      setActiveCall(call)
+                      setCallStatus('connecting')
+                      call.on('accept', () => setCallStatus('connected'))
+                      call.on('disconnect', () => {
+                        setActiveCall(null)
+                        setCallStatus('ended')
+                        setTimeout(() => setCallStatus(null), 2000)
+                      })
+                    }}
+                    disabled={deviceStatus !== 'ready' || !openDialerPhone}
+                    style={{ padding: '15px 40px', fontSize: 18 }}
+                  >
+                    📞 {t.call}
+                  </button>
+                </div>
+
+                <div className="sms-section" style={{ marginTop: 40 }}>
+                  <div className="form-group">
+                    <label>{t.smsMessage}</label>
+                    <textarea
+                      value={openDialerMessage}
+                      onChange={(e) => setOpenDialerMessage(e.target.value)}
+                      placeholder={t.typeMessage}
+                      className="form-input"
+                      rows={4}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      if (!openDialerPhone) {
+                        showToast(t.enterPhone, 'error')
+                        return
+                      }
+                      if (!openDialerMessage) {
+                        showToast(t.enterMessage, 'error')
+                        return
+                      }
+                      await sendOpenDialerSMS(openDialerPhone, openDialerMessage)
+                      setOpenDialerMessage('')
+                    }}
+                    disabled={!openDialerPhone || !openDialerMessage}
+                    style={{ width: '100%', padding: 12 }}
+                  >
+                    💬 {t.sendSMS}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
       {/* Modals */}
@@ -1765,6 +2293,93 @@ function MainApp({ user, onLogout }) {
           onClose={() => setShowQuickCall(false)}
           onCall={quickCall}
           deviceStatus={deviceStatus}
+        />
+      )}
+
+      {/* Vendor Modal (Add/Edit) */}
+      {showVendorModal && (
+        <VendorModal
+          vendor={selectedVendor}
+          onClose={() => { setShowVendorModal(false); setSelectedVendor(null) }}
+          onSave={async (vendorData) => {
+            try {
+              if (selectedVendor) {
+                await api.put(`/api/vendors/${selectedVendor.id}`, vendorData)
+                showToast(t.vendorUpdated)
+              } else {
+                await api.post('/api/vendors', vendorData)
+                showToast(t.vendorAdded)
+              }
+              await fetchVendors()
+              setShowVendorModal(false)
+              setSelectedVendor(null)
+            } catch (error) {
+              console.error('Error saving vendor:', error)
+              showToast(t.errorSaving, 'error')
+            }
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Vendor SMS Modal */}
+      {showVendorSMSModal && selectedVendor && (
+        <VendorSMSModal
+          vendor={selectedVendor}
+          onClose={() => { setShowVendorSMSModal(false); setSelectedVendor(null) }}
+          onSend={async (message) => {
+            try {
+              await api.post(`/api/vendors/${selectedVendor.id}/sms`, { message })
+              showToast(t.smsSent)
+              setShowVendorSMSModal(false)
+              setSelectedVendor(null)
+            } catch (error) {
+              console.error('Error sending SMS to vendor:', error)
+              showToast(t.errorSending, 'error')
+            }
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Project Modal (Add/Edit) */}
+      {showProjectModal && (
+        <ProjectModal
+          project={selectedProject}
+          leads={leads}
+          onClose={() => { setShowProjectModal(false); setSelectedProject(null) }}
+          onSave={async (projectData) => {
+            try {
+              if (selectedProject) {
+                await api.put(`/api/projects/${selectedProject.id}`, projectData)
+                showToast(t.projectUpdated)
+              } else {
+                await api.post('/api/projects', projectData)
+                showToast(t.projectCreated)
+              }
+              await fetchProjects()
+              setShowProjectModal(false)
+              setSelectedProject(null)
+            } catch (error) {
+              console.error('Error saving project:', error)
+              showToast(t.errorSaving, 'error')
+            }
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Vendor Dispatch Modal (from Lead) */}
+      {showVendorDispatchModal && selectedLead && (
+        <VendorDispatchModal
+          lead={selectedLead}
+          vendors={vendors}
+          onClose={() => setShowVendorDispatchModal(false)}
+          onDispatch={async (vendorId, message) => {
+            await dispatchLeadToVendor(selectedLead.id, vendorId, message)
+            setShowVendorDispatchModal(false)
+          }}
+          t={t}
         />
       )}
 
@@ -2554,6 +3169,287 @@ function SalespeopleManager({ salespeople, onRefresh, showToast, isAdmin }) {
             <span>{sp.email || 'N/A'}</span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// Vendor Modal Component (Add/Edit)
+function VendorModal({ vendor, onClose, onSave, t }) {
+  const [name, setName] = useState(vendor?.name || '')
+  const [company, setCompany] = useState(vendor?.company || '')
+  const [phone, setPhone] = useState(vendor?.phone || '')
+  const [phone2, setPhone2] = useState(vendor?.phone2 || '')
+  const [email, setEmail] = useState(vendor?.email || '')
+  const [address, setAddress] = useState(vendor?.address || '')
+  const [city, setCity] = useState(vendor?.city || '')
+  const [state, setState] = useState(vendor?.state || '')
+  const [zip, setZip] = useState(vendor?.zip || '')
+  const [category, setCategory] = useState(vendor?.category || '')
+  const [notes, setNotes] = useState(vendor?.notes || '')
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+        <div className="modal-header">
+          <h3>{vendor ? t.editVendor : t.addVendor}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-group">
+              <label>{t.name} *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.company}</label>
+              <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.phone}</label>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.phone2}</label>
+              <input type="tel" value={phone2} onChange={(e) => setPhone2(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.email}</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.category}</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">{t.selectCategory}</option>
+                <option value="roofing">{t.roofing}</option>
+                <option value="materials">{t.materials}</option>
+                <option value="electrical">{t.electrical}</option>
+                <option value="plumbing">{t.plumbing}</option>
+                <option value="hvac">{t.hvac}</option>
+                <option value="other">{t.other}</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>{t.address}</label>
+              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.city}</label>
+              <input type="text" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.state}</label>
+              <input type="text" value={state} onChange={(e) => setState(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.zip}</label>
+              <input type="text" value={zip} onChange={(e) => setZip(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>{t.notes}</label>
+              <textarea rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!name.trim()}
+            onClick={() => onSave({ name, company, phone, phone2, email, address, city, state, zip, category, notes })}
+          >
+            {t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Vendor SMS Modal Component
+function VendorSMSModal({ vendor, onClose, onSend, t }) {
+  const [message, setMessage] = useState('')
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.sendSMSTo} {vendor.name}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <p><strong>{t.phone}:</strong> {vendor.phone}</p>
+          <div className="form-group">
+            <label>{t.message}</label>
+            <textarea
+              rows="4"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t.typeMessage}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!message.trim()}
+            onClick={() => onSend(message)}
+          >
+            {t.sendSMS}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Project Modal Component (Add/Edit)
+function ProjectModal({ project, leads, onClose, onSave, t }) {
+  const [name, setName] = useState(project?.name || '')
+  const [description, setDescription] = useState(project?.description || '')
+  const [leadId, setLeadId] = useState(project?.lead_id || '')
+  const [status, setStatus] = useState(project?.status || 'pending')
+  const [startDate, setStartDate] = useState(project?.start_date || '')
+  const [endDate, setEndDate] = useState(project?.end_date || '')
+  const [budget, setBudget] = useState(project?.budget || '')
+  const [notes, setNotes] = useState(project?.notes || '')
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+        <div className="modal-header">
+          <h3>{project ? t.editProject : t.createProject}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>{t.projectName} *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>{t.description}</label>
+              <textarea rows="2" value={description} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.linkedLead}</label>
+              <select value={leadId} onChange={(e) => setLeadId(e.target.value)}>
+                <option value="">{t.noLinkedLead}</option>
+                {leads.map(lead => (
+                  <option key={lead.id} value={lead.id}>
+                    L-{String(lead.lead_number || '').padStart(3, '0')} - {lead.first_name} {lead.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{t.status}</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="pending">{t.pending}</option>
+                <option value="in_progress">{t.in_progress}</option>
+                <option value="completed">{t.completed}</option>
+                <option value="cancelled">{t.cancelled}</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{t.startDate}</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.endDate}</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>{t.budget}</label>
+              <input type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <label>{t.notes}</label>
+              <textarea rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!name.trim()}
+            onClick={() => onSave({
+              name, description, lead_id: leadId || null, status,
+              start_date: startDate || null, end_date: endDate || null,
+              budget: budget ? parseFloat(budget) : null, notes
+            })}
+          >
+            {t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Vendor Dispatch Modal Component (dispatch lead to vendor)
+function VendorDispatchModal({ lead, vendors, onClose, onDispatch, t }) {
+  const [selectedVendorId, setSelectedVendorId] = useState('')
+  const [message, setMessage] = useState('')
+
+  // Generate default dispatch message
+  const generateDefaultMessage = () => {
+    return `New lead dispatch:
+Name: ${lead.first_name} ${lead.last_name}
+Address: ${lead.address || 'N/A'}
+City: ${lead.city || 'N/A'}, ${lead.state || ''} ${lead.zip || ''}
+Phone: ${lead.phone || 'N/A'}
+Job: ${lead.job_group || 'N/A'}`
+  }
+
+  useEffect(() => {
+    setMessage(generateDefaultMessage())
+  }, [lead])
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.dispatchToVendor}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <p><strong>{t.lead}:</strong> L-{String(lead.lead_number || '').padStart(3, '0')} - {lead.first_name} {lead.last_name}</p>
+
+          <div className="form-group">
+            <label>{t.selectVendor} *</label>
+            <select value={selectedVendorId} onChange={(e) => setSelectedVendorId(e.target.value)}>
+              <option value="">{t.chooseVendor}</option>
+              {vendors.filter(v => v.phone).map(vendor => (
+                <option key={vendor.id} value={vendor.id}>
+                  V-{String(vendor.vendor_number || '').padStart(3, '0')} - {vendor.name} ({vendor.phone})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>{t.message}</label>
+            <textarea
+              rows="6"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t.dispatchMessage}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!selectedVendorId || !message.trim()}
+            onClick={() => onDispatch(selectedVendorId, message)}
+          >
+            {t.dispatch}
+          </button>
+        </div>
       </div>
     </div>
   )
