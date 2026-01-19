@@ -429,6 +429,34 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
   }
 });
 
+// Search leads by phone number
+app.get('/api/leads/search', authMiddleware, async (req, res) => {
+  try {
+    const { phone } = req.query;
+
+    if (!phone || phone.length < 7) {
+      return res.json([]);
+    }
+
+    // Normalize: get last 10 digits
+    const normalized = phone.replace(/\D/g, '').slice(-10);
+
+    // Search in phone, phone2, phone3 fields
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .or(`phone.ilike.%${normalized}%,phone2.ilike.%${normalized}%,phone3.ilike.%${normalized}%`)
+      .limit(5);
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error searching leads by phone:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get single lead by ID
 app.get('/api/leads/:id', authMiddleware, async (req, res) => {
   try {

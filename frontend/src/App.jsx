@@ -304,7 +304,9 @@ const TRANSLATIONS = {
     enterPhone: 'Ingresa un número',
     enterMessage: 'Escribe un mensaje',
     call: 'Llamar',
-    edit: 'Editar'
+    edit: 'Editar',
+    clickToOpenLead: 'Clic para abrir lead',
+    unknownCaller: 'Llamante desconocido - No en base de datos'
   },
   en: {
     // General
@@ -601,7 +603,9 @@ const TRANSLATIONS = {
     enterPhone: 'Enter a phone number',
     enterMessage: 'Enter a message',
     call: 'Call',
-    edit: 'Edit'
+    edit: 'Edit',
+    clickToOpenLead: 'Click to open lead',
+    unknownCaller: 'Unknown caller - Not in database'
   }
 }
 
@@ -912,6 +916,8 @@ function MainApp({ user, onLogout }) {
   // Open Dialer states
   const [openDialerPhone, setOpenDialerPhone] = useState('')
   const [openDialerMessage, setOpenDialerMessage] = useState('')
+  const [dialerMatchedLead, setDialerMatchedLead] = useState(null)
+  const [incomingCallLead, setIncomingCallLead] = useState(null)
 
   // Lead Dispatch to Vendor states
   const [showVendorDispatchModal, setShowVendorDispatchModal] = useState(false)
@@ -941,18 +947,37 @@ function MainApp({ user, onLogout }) {
           setDeviceStatus('error')
         })
 
-        twilioDevice.on('incoming', (call) => {
+        twilioDevice.on('incoming', async (call) => {
           console.log('Incoming call from:', call.parameters.From)
           setIncomingCall(call)
           setCallStatus('incoming')
 
+          // Search for lead by incoming phone number
+          const incomingPhone = call.parameters.From
+          if (incomingPhone) {
+            try {
+              const normalized = incomingPhone.replace(/\D/g, '').slice(-10)
+              const res = await api.get(`/api/leads/search?phone=${normalized}`)
+              if (res.data && res.data.length > 0) {
+                setIncomingCallLead(res.data[0])
+              } else {
+                setIncomingCallLead(null)
+              }
+            } catch (e) {
+              console.error('Error finding incoming call lead:', e)
+              setIncomingCallLead(null)
+            }
+          }
+
           call.on('cancel', () => {
             setIncomingCall(null)
+            setIncomingCallLead(null)
             setCallStatus(null)
           })
 
           call.on('disconnect', () => {
             setIncomingCall(null)
+            setIncomingCallLead(null)
             setActiveCall(null)
             setCallStatus('ended')
             setTimeout(() => setCallStatus(null), 2000)
@@ -1257,6 +1282,55 @@ function MainApp({ user, onLogout }) {
       showToast(t.errorSending)
     }
   }
+
+  // Find lead by phone number (normalize and search)
+  const findLeadByPhone = async (phone) => {
+    if (!phone || phone.length < 7) return null
+    try {
+      // Normalize phone number (remove non-digits)
+      const normalized = phone.replace(/\D/g, '').slice(-10)
+      const res = await api.get(`/api/leads/search?phone=${normalized}`)
+      if (res.data && res.data.length > 0) {
+        return res.data[0]
+      }
+      return null
+    } catch (error) {
+      console.error('Error finding lead by phone:', error)
+      return null
+    }
+  }
+
+  // Open lead from dialer when phone matches
+  const openLeadFromDialer = async () => {
+    if (dialerMatchedLead) {
+      const index = leads.findIndex(l => l.id === dialerMatchedLead.id)
+      await selectLead(dialerMatchedLead, index >= 0 ? index : 0)
+    }
+  }
+
+  // Handle dial pad input
+  const handleDialPadPress = (digit) => {
+    setOpenDialerPhone(prev => prev + digit)
+  }
+
+  // Handle backspace on dial pad
+  const handleDialPadBackspace = () => {
+    setOpenDialerPhone(prev => prev.slice(0, -1))
+  }
+
+  // Search for lead when phone number changes
+  useEffect(() => {
+    const searchLead = async () => {
+      if (openDialerPhone.length >= 7) {
+        const lead = await findLeadByPhone(openDialerPhone)
+        setDialerMatchedLead(lead)
+      } else {
+        setDialerMatchedLead(null)
+      }
+    }
+    const debounce = setTimeout(searchLead, 300)
+    return () => clearTimeout(debounce)
+  }, [openDialerPhone])
 
   useEffect(() => {
     fetchLeads()
@@ -2161,49 +2235,188 @@ function MainApp({ user, onLogout }) {
             </header>
 
             <div className="content">
-              <div className="open-dialer-container" style={{ maxWidth: 500, margin: '0 auto', padding: 20 }}>
-                <div className="form-group">
-                  <label>{t.phoneNumber}</label>
-                  <input
-                    type="tel"
-                    value={openDialerPhone}
-                    onChange={(e) => setOpenDialerPhone(e.target.value)}
-                    placeholder="+1234567890"
-                    className="form-input"
-                    style={{ fontSize: 20, textAlign: 'center', padding: 15 }}
-                  />
+              <div className="open-dialer-container" style={{ maxWidth: 400, margin: '0 auto', padding: 20 }}>
+                {/* Phone Number Display */}
+                <div className="dialer-display" style={{
+                  background: '#1a1a2e',
+                  borderRadius: 12,
+                  padding: '20px 15px',
+                  marginBottom: 20,
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    fontSize: 28,
+                    fontFamily: 'monospace',
+                    color: '#fff',
+                    letterSpacing: 2,
+                    minHeight: 40,
+                    wordBreak: 'break-all'
+                  }}>
+                    {openDialerPhone || t.enterPhoneNumber}
+                  </div>
+                  {dialerMatchedLead && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: '8px 12px',
+                        background: '#4caf50',
+                        borderRadius: 8,
+                        cursor: 'pointer'
+                      }}
+                      onClick={openLeadFromDialer}
+                    >
+                      <div style={{ color: '#fff', fontWeight: 'bold' }}>
+                        L-{String(dialerMatchedLead.lead_number || '').padStart(3, '0')} - {dialerMatchedLead.first_name} {dialerMatchedLead.last_name}
+                      </div>
+                      <div style={{ color: '#e0e0e0', fontSize: 12 }}>{t.clickToOpenLead}</div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="dialer-actions" style={{ display: 'flex', gap: 15, justifyContent: 'center', marginTop: 20 }}>
+                {/* Dial Pad */}
+                <div className="dial-pad" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 10,
+                  marginBottom: 20
+                }}>
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(digit => (
+                    <button
+                      key={digit}
+                      onClick={() => handleDialPadPress(digit)}
+                      style={{
+                        padding: 20,
+                        fontSize: 24,
+                        fontWeight: 'bold',
+                        border: 'none',
+                        borderRadius: 50,
+                        background: '#e0e0e0',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}
+                      onMouseDown={(e) => e.target.style.background = '#bdbdbd'}
+                      onMouseUp={(e) => e.target.style.background = '#e0e0e0'}
+                      onMouseLeave={(e) => e.target.style.background = '#e0e0e0'}
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 20 }}>
                   <button
-                    className="btn btn-success btn-large"
-                    onClick={() => {
-                      if (!device || deviceStatus !== 'ready') {
-                        showToast(t.phoneNotReady, 'error')
-                        return
-                      }
-                      if (!openDialerPhone) {
-                        showToast(t.enterPhone, 'error')
-                        return
-                      }
-                      const call = device.connect({ params: { To: openDialerPhone } })
-                      setActiveCall(call)
-                      setCallStatus('connecting')
-                      call.on('accept', () => setCallStatus('connected'))
-                      call.on('disconnect', () => {
-                        setActiveCall(null)
-                        setCallStatus('ended')
-                        setTimeout(() => setCallStatus(null), 2000)
-                      })
+                    onClick={handleDialPadBackspace}
+                    style={{
+                      padding: '15px 25px',
+                      fontSize: 18,
+                      border: 'none',
+                      borderRadius: 50,
+                      background: '#ff9800',
+                      color: '#fff',
+                      cursor: 'pointer'
                     }}
-                    disabled={deviceStatus !== 'ready' || !openDialerPhone}
-                    style={{ padding: '15px 40px', fontSize: 18 }}
+                    disabled={!openDialerPhone}
                   >
-                    📞 {t.call}
+                    ⌫
+                  </button>
+                  <button
+                    onClick={() => setOpenDialerPhone('')}
+                    style={{
+                      padding: '15px 25px',
+                      fontSize: 14,
+                      border: 'none',
+                      borderRadius: 50,
+                      background: '#9e9e9e',
+                      color: '#fff',
+                      cursor: 'pointer'
+                    }}
+                    disabled={!openDialerPhone}
+                  >
+                    {t.clear}
                   </button>
                 </div>
 
-                <div className="sms-section" style={{ marginTop: 40 }}>
+                {/* Call / Hang Up Button */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 30 }}>
+                  {(!callStatus || callStatus === 'ended') ? (
+                    <button
+                      onClick={() => {
+                        if (!device || deviceStatus !== 'ready') {
+                          showToast(t.phoneNotReady, 'error')
+                          return
+                        }
+                        if (!openDialerPhone) {
+                          showToast(t.enterPhone, 'error')
+                          return
+                        }
+                        const call = device.connect({ params: { To: openDialerPhone } })
+                        setActiveCall(call)
+                        setCallStatus('connecting')
+                        call.on('accept', () => setCallStatus('connected'))
+                        call.on('disconnect', () => {
+                          setActiveCall(null)
+                          setCallStatus('ended')
+                          setTimeout(() => setCallStatus(null), 2000)
+                        })
+                      }}
+                      disabled={deviceStatus !== 'ready' || !openDialerPhone}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: deviceStatus === 'ready' ? '#4caf50' : '#9e9e9e',
+                        color: '#fff',
+                        fontSize: 32,
+                        cursor: deviceStatus === 'ready' ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      📞
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (activeCall) {
+                          activeCall.disconnect()
+                        }
+                        setActiveCall(null)
+                        setCallStatus(null)
+                      }}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: '50%',
+                        border: 'none',
+                        background: '#f44336',
+                        color: '#fff',
+                        fontSize: 32,
+                        cursor: 'pointer',
+                        animation: callStatus === 'connected' ? 'pulse 1.5s infinite' : 'none'
+                      }}
+                    >
+                      📵
+                    </button>
+                  )}
+                </div>
+
+                {/* Call Status */}
+                {callStatus && callStatus !== 'ended' && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: 10,
+                    background: callStatus === 'connected' ? '#4caf50' : '#ff9800',
+                    color: '#fff',
+                    borderRadius: 8,
+                    marginBottom: 20
+                  }}>
+                    {callStatus === 'connecting' && t.calling}
+                    {callStatus === 'connected' && t.connected}
+                  </div>
+                )}
+
+                {/* SMS Section */}
+                <div className="sms-section" style={{ borderTop: '1px solid #e0e0e0', paddingTop: 20 }}>
                   <div className="form-group">
                     <label>{t.smsMessage}</label>
                     <textarea
@@ -2211,7 +2424,7 @@ function MainApp({ user, onLogout }) {
                       onChange={(e) => setOpenDialerMessage(e.target.value)}
                       placeholder={t.typeMessage}
                       className="form-input"
-                      rows={4}
+                      rows={3}
                     />
                   </div>
                   <button
@@ -2389,7 +2602,39 @@ function MainApp({ user, onLogout }) {
           <div className="incoming-call-modal">
             <div className="incoming-call-icon">📞</div>
             <h3>{t.incomingCall}</h3>
-            <p>{t.callFrom}: {incomingCall.parameters?.From || 'Unknown'}</p>
+            <p style={{ fontSize: 18, margin: '10px 0' }}>{incomingCall.parameters?.From || 'Unknown'}</p>
+            {incomingCallLead ? (
+              <div style={{
+                background: '#4caf50',
+                color: '#fff',
+                padding: '12px 16px',
+                borderRadius: 8,
+                margin: '15px 0',
+                cursor: 'pointer'
+              }} onClick={async () => {
+                const index = leads.findIndex(l => l.id === incomingCallLead.id)
+                await selectLead(incomingCallLead, index >= 0 ? index : 0)
+              }}>
+                <div style={{ fontWeight: 'bold', fontSize: 16 }}>
+                  L-{String(incomingCallLead.lead_number || '').padStart(3, '0')} - {incomingCallLead.first_name} {incomingCallLead.last_name}
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.9 }}>
+                  {incomingCallLead.address && `${incomingCallLead.address}, `}{incomingCallLead.city}
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4 }}>{t.clickToOpenLead}</div>
+              </div>
+            ) : (
+              <div style={{
+                background: '#9e9e9e',
+                color: '#fff',
+                padding: '10px 16px',
+                borderRadius: 8,
+                margin: '15px 0',
+                fontSize: 14
+              }}>
+                {t.unknownCaller}
+              </div>
+            )}
             <div className="incoming-call-actions">
               <button className="btn btn-success btn-large" onClick={answerCall}>
                 {t.answer}
