@@ -548,9 +548,20 @@ app.post('/api/leads', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'First name and phone are required' });
     }
 
+    // Get next lead_number
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextLeadNumber = (maxData?.lead_number || 0) + 1;
+
     const { data, error } = await supabase
       .from('leads')
       .insert({
+        lead_number: nextLeadNumber,
         first_name,
         last_name: last_name || '',
         phone,
@@ -702,6 +713,58 @@ function parseExcelDate(value) {
   return null;
 }
 
+// Fix leads with missing lead_numbers (Admin Only)
+app.post('/api/leads/fix-numbers', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    // Get all leads with lead_number = 0 or NULL, ordered by created_at
+    const { data: leadsToFix, error: fetchError } = await supabase
+      .from('leads')
+      .select('id, created_at')
+      .or('lead_number.is.null,lead_number.eq.0')
+      .order('created_at', { ascending: true });
+
+    if (fetchError) throw fetchError;
+
+    if (!leadsToFix || leadsToFix.length === 0) {
+      return res.json({ message: 'No leads need fixing', fixed: 0 });
+    }
+
+    // Get the current max lead_number
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .gt('lead_number', 0)
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = (maxData?.lead_number || 0) + 1;
+
+    // Update each lead with a proper lead_number
+    let fixedCount = 0;
+    for (const lead of leadsToFix) {
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ lead_number: nextNumber })
+        .eq('id', lead.id);
+
+      if (!updateError) {
+        fixedCount++;
+        nextNumber++;
+      }
+    }
+
+    res.json({
+      message: `Fixed ${fixedCount} leads`,
+      fixed: fixedCount,
+      total: leadsToFix.length
+    });
+  } catch (error) {
+    console.error('Error fixing lead numbers:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Upload Excel/CSV file (Admin Only)
 app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
   try {
@@ -768,9 +831,25 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
       return res.status(400).json({ error: 'No valid leads found. Each lead must have at least one phone number.' });
     }
 
+    // Get the current max lead_number to assign sequential numbers
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextLeadNumber = (maxData?.lead_number || 0) + 1;
+
+    // Assign sequential lead_numbers to each lead
+    const leadsWithNumbers = validLeads.map((lead, index) => ({
+      ...lead,
+      lead_number: nextLeadNumber + index
+    }));
+
     const { data, error } = await supabase
       .from('leads')
-      .insert(validLeads)
+      .insert(leadsWithNumbers)
       .select();
 
     if (error) {
