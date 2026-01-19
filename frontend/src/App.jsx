@@ -310,7 +310,9 @@ const TRANSLATIONS = {
     delete: 'Eliminar',
     confirmDeleteLead: '¿Estás seguro de eliminar este lead? Esta acción no se puede deshacer.',
     leadDeleted: 'Lead eliminado',
-    errorDeleting: 'Error al eliminar'
+    errorDeleting: 'Error al eliminar',
+    openLead: 'Abrir Lead',
+    at: 'a las'
   },
   en: {
     // General
@@ -613,7 +615,9 @@ const TRANSLATIONS = {
     delete: 'Delete',
     confirmDeleteLead: 'Are you sure you want to delete this lead? This action cannot be undone.',
     leadDeleted: 'Lead deleted',
-    errorDeleting: 'Error deleting'
+    errorDeleting: 'Error deleting',
+    openLead: 'Open Lead',
+    at: 'at'
   }
 }
 
@@ -930,6 +934,9 @@ function MainApp({ user, onLogout }) {
   // Lead Dispatch to Vendor states
   const [showVendorDispatchModal, setShowVendorDispatchModal] = useState(false)
   const [leadDispatches, setLeadDispatches] = useState([])
+
+  // Appointment SMS modal state
+  const [showAppointmentSMSModal, setShowAppointmentSMSModal] = useState(false)
 
   const isAdmin = user.role === 'admin'
 
@@ -2061,34 +2068,139 @@ function MainApp({ user, onLogout }) {
         {currentView === 'appointments' && (
           <>
             <header className="header">
-              <h2>Citas</h2>
+              <h2>{t.appointments}</h2>
             </header>
 
             <div className="content">
               {appointments.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No hay citas</h3>
-                  <p>Agenda citas desde las tarjetas de leads</p>
+                  <h3>{t.noAppointments}</h3>
+                  <p>{t.scheduleFromLeads}</p>
                 </div>
               ) : (
                 <div className="appointments-list">
                   {appointments.map(apt => (
-                    <div key={apt.id} className="appointment-item">
-                      <div className="appointment-info">
-                        <h4>{apt.leads?.first_name} {apt.leads?.last_name}</h4>
-                        <p>{apt.leads?.phone} | {apt.leads?.address}, {apt.leads?.city}</p>
-                        <p><strong>Fecha:</strong> {apt.appointment_date} a las {apt.appointment_time}</p>
-                        <p><strong>Estado:</strong> <span className={`status-badge status-${apt.status}`}>
+                    <div key={apt.id} className="appointment-card" style={{
+                      background: '#fff',
+                      borderRadius: 12,
+                      padding: 16,
+                      marginBottom: 12,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      border: apt.status === 'scheduled' ? '2px solid #4caf50' : '1px solid #e0e0e0'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          {/* Lead info - clickable */}
+                          <div
+                            style={{ cursor: 'pointer' }}
+                            onClick={async () => {
+                              if (apt.leads) {
+                                const index = leads.findIndex(l => l.id === apt.lead_id)
+                                await selectLead(apt.leads, index >= 0 ? index : 0)
+                              }
+                            }}
+                          >
+                            <h4 style={{ margin: '0 0 4px 0', color: '#1a1a2e' }}>
+                              <span style={{ color: '#666', fontSize: 12, marginRight: 8 }}>
+                                L-{String(apt.leads?.lead_number || '').padStart(3, '0')}
+                              </span>
+                              {apt.leads?.first_name} {apt.leads?.last_name}
+                            </h4>
+                            <p style={{ margin: '4px 0', color: '#666', fontSize: 14 }}>
+                              {apt.leads?.address}, {apt.leads?.city}
+                            </p>
+                            <p style={{ margin: '4px 0', color: '#333', fontWeight: 500 }}>
+                              📞 {apt.leads?.phone}
+                            </p>
+                          </div>
+
+                          {/* Appointment details */}
+                          <div style={{ marginTop: 12, padding: '8px 12px', background: '#f5f5f5', borderRadius: 8 }}>
+                            <p style={{ margin: 0, fontSize: 14 }}>
+                              <strong>📅 {t.date}:</strong> {apt.appointment_date} {t.at} {apt.appointment_time}
+                            </p>
+                            {apt.notes && (
+                              <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#666' }}>
+                                <strong>{t.notes}:</strong> {apt.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status badge */}
+                        <span className={`status-badge status-${apt.status}`} style={{ marginLeft: 12 }}>
                           {STATUS_LABELS[apt.status] || apt.status}
-                        </span></p>
+                        </span>
                       </div>
-                      <div className="appointment-actions">
-                        {apt.status !== 'dispatched' && (
+
+                      {/* Action buttons */}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                        {/* Call button */}
+                        {apt.leads?.phone && (
                           <button
                             className="btn btn-success btn-small"
+                            onClick={async () => {
+                              if (apt.leads) {
+                                const index = leads.findIndex(l => l.id === apt.lead_id)
+                                await selectLead(apt.leads, index >= 0 ? index : 0)
+                                if (device && deviceStatus === 'ready') {
+                                  makeCall(apt.leads.phone, apt.lead_id)
+                                }
+                              }
+                            }}
+                            disabled={deviceStatus !== 'ready'}
+                          >
+                            📞 {t.call}
+                          </button>
+                        )}
+
+                        {/* SMS button */}
+                        {apt.leads?.phone && (
+                          <button
+                            className="btn btn-primary btn-small"
+                            onClick={() => {
+                              setSelectedAppointment(apt)
+                              setShowAppointmentSMSModal(true)
+                            }}
+                          >
+                            💬 SMS
+                          </button>
+                        )}
+
+                        {/* Disposition button */}
+                        <button
+                          className="btn btn-secondary btn-small"
+                          onClick={async () => {
+                            if (apt.leads) {
+                              const index = leads.findIndex(l => l.id === apt.lead_id)
+                              await selectLead(apt.leads, index >= 0 ? index : 0)
+                              setShowDispositionModal(true)
+                            }
+                          }}
+                        >
+                          📋 {t.disposition}
+                        </button>
+
+                        {/* Open Lead button */}
+                        <button
+                          className="btn btn-secondary btn-small"
+                          onClick={async () => {
+                            if (apt.leads) {
+                              const index = leads.findIndex(l => l.id === apt.lead_id)
+                              await selectLead(apt.leads, index >= 0 ? index : 0)
+                            }
+                          }}
+                        >
+                          👤 {t.openLead}
+                        </button>
+
+                        {/* Dispatch button */}
+                        {apt.status !== 'dispatched' && (
+                          <button
+                            className="btn btn-warning btn-small"
                             onClick={() => { setSelectedAppointment(apt); setShowDispatchModal(true) }}
                           >
-                            Enviar
+                            📤 {t.dispatch}
                           </button>
                         )}
                       </div>
@@ -2605,6 +2717,37 @@ function MainApp({ user, onLogout }) {
               setSelectedVendor(null)
             } catch (error) {
               console.error('Error sending SMS to vendor:', error)
+              showToast(t.errorSending, 'error')
+            }
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Appointment SMS Modal */}
+      {showAppointmentSMSModal && selectedAppointment && (
+        <AppointmentSMSModal
+          appointment={selectedAppointment}
+          onClose={() => { setShowAppointmentSMSModal(false); setSelectedAppointment(null) }}
+          onSend={async (message) => {
+            try {
+              const phone = selectedAppointment.leads?.phone
+              if (!phone) throw new Error('No phone number')
+              await api.post('/api/sms/send', {
+                to: phone,
+                message,
+                lead_id: selectedAppointment.lead_id
+              })
+              showToast(t.smsSent)
+              setShowAppointmentSMSModal(false)
+              setSelectedAppointment(null)
+              // Refresh conversations if the lead is currently selected
+              if (selectedLead?.id === selectedAppointment.lead_id) {
+                const convRes = await api.get(`/api/leads/${selectedAppointment.lead_id}/conversations`)
+                setConversations(convRes.data || [])
+              }
+            } catch (error) {
+              console.error('Error sending SMS to lead:', error)
               showToast(t.errorSending, 'error')
             }
           }}
@@ -3582,6 +3725,52 @@ function VendorSMSModal({ vendor, onClose, onSend, t }) {
         <div className="modal-body">
           <p><strong>{t.phone}:</strong> {vendor.phone}</p>
           <div className="form-group">
+            <label>{t.message}</label>
+            <textarea
+              rows="4"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={t.typeMessage}
+            />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
+          <button
+            className="btn btn-primary"
+            disabled={!message.trim()}
+            onClick={() => onSend(message)}
+          >
+            {t.sendSMS}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Appointment SMS Modal Component - Send SMS to lead from appointments
+function AppointmentSMSModal({ appointment, onClose, onSend, t }) {
+  const [message, setMessage] = useState('')
+  const lead = appointment?.leads
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{t.sendSMSTo} {lead?.first_name} {lead?.last_name}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <p style={{ marginBottom: 8 }}>
+            <span style={{ color: '#666', fontSize: 12 }}>L-{String(lead?.lead_number || '').padStart(3, '0')}</span>
+          </p>
+          <p><strong>{t.phone}:</strong> {lead?.phone}</p>
+          <p><strong>{t.address}:</strong> {lead?.address}, {lead?.city}</p>
+          <p style={{ marginTop: 8, padding: 8, background: '#f5f5f5', borderRadius: 4 }}>
+            <strong>📅 {t.date}:</strong> {appointment?.appointment_date} {t.at} {appointment?.appointment_time}
+          </p>
+          <div className="form-group" style={{ marginTop: 12 }}>
             <label>{t.message}</label>
             <textarea
               rows="4"
