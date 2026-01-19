@@ -312,7 +312,9 @@ const TRANSLATIONS = {
     leadDeleted: 'Lead eliminado',
     errorDeleting: 'Error al eliminar',
     openLead: 'Abrir Lead',
-    at: 'a las'
+    at: 'a las',
+    confirmDeleteAppointment: '¿Estás seguro de eliminar esta cita?',
+    appointmentDeleted: 'Cita eliminada'
   },
   en: {
     // General
@@ -617,7 +619,9 @@ const TRANSLATIONS = {
     leadDeleted: 'Lead deleted',
     errorDeleting: 'Error deleting',
     openLead: 'Open Lead',
-    at: 'at'
+    at: 'at',
+    confirmDeleteAppointment: 'Are you sure you want to delete this appointment?',
+    appointmentDeleted: 'Appointment deleted'
   }
 }
 
@@ -1470,6 +1474,18 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Delete appointment
+  const deleteAppointment = async (appointmentId) => {
+    try {
+      await api.delete(`/api/appointments/${appointmentId}`)
+      setAppointments(appointments.filter(a => a.id !== appointmentId))
+      showToast(t.appointmentDeleted)
+    } catch (error) {
+      console.error('Error deleting appointment:', error)
+      showToast(t.errorDeleting, 'error')
+    }
+  }
+
   // Dispatch appointment
   const dispatchAppointment = async (appointmentId, salespersonPhone) => {
     try {
@@ -2203,6 +2219,19 @@ function MainApp({ user, onLogout }) {
                             📤 {t.dispatch}
                           </button>
                         )}
+
+                        {/* Delete button */}
+                        <button
+                          className="btn btn-danger btn-small"
+                          onClick={() => {
+                            if (confirm(t.confirmDeleteAppointment)) {
+                              deleteAppointment(apt.id)
+                            }
+                          }}
+                          title={t.delete}
+                        >
+                          🗑️ {t.delete}
+                        </button>
                       </div>
                     </div>
                   ))}

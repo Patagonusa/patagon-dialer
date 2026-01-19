@@ -1198,7 +1198,7 @@ app.get('/api/appointments', authMiddleware, async (req, res) => {
       .from('appointments')
       .select(`
         *,
-        leads (first_name, last_name, phone, address, city, state, zip, job_group)
+        leads (id, lead_number, first_name, last_name, phone, address, city, state, zip, job_group)
       `)
       .order('appointment_date', { ascending: true });
 
@@ -1207,6 +1207,25 @@ app.get('/api/appointments', authMiddleware, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Error fetching appointments:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete appointment
+app.delete('/api/appointments/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Appointment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting appointment:', error);
     res.status(500).json({ error: error.message });
   }
 });
