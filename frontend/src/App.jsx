@@ -990,8 +990,8 @@ function MainApp({ user, onLogout }) {
   const [showAppointmentSMSModal, setShowAppointmentSMSModal] = useState(false)
 
   // Call History states (Admin only)
-  const [callHistory, setCallHistory] = useState([])
-  const [callHistoryPagination, setCallHistoryPagination] = useState({ page: 1, totalPages: 1, total: 0 })
+  const [allCallHistory, setAllCallHistory] = useState([])
+  const [allCallHistoryPagination, setAllCallHistoryPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [callHistoryFilter, setCallHistoryFilter] = useState({ direction: 'all', startDate: '', endDate: '' })
 
   const isAdmin = user.role === 'admin'
@@ -1283,15 +1283,15 @@ function MainApp({ user, onLogout }) {
       }
 
       const res = await api.get(`/api/calls/history?${params}`)
-      setCallHistory(res.data.calls || [])
-      setCallHistoryPagination({
+      setAllCallHistory(res.data.calls || [])
+      setAllCallHistoryPagination({
         page: res.data.page,
         totalPages: res.data.totalPages,
         total: res.data.total
       })
     } catch (error) {
       console.error('Error fetching all call history:', error)
-      setCallHistory([])
+      setAllCallHistory([])
     }
   }
 
@@ -2405,7 +2405,7 @@ function MainApp({ user, onLogout }) {
         {currentView === 'historical' && isAdmin && (
           <>
             <header className="header">
-              <h2>{t.callHistory} ({callHistoryPagination.total})</h2>
+              <h2>{t.callHistory} ({allCallHistoryPagination.total})</h2>
               <div className="header-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <select
                   className="form-select"
@@ -2447,7 +2447,7 @@ function MainApp({ user, onLogout }) {
             </header>
 
             <div className="content">
-              {callHistory.length === 0 ? (
+              {allCallHistory.length === 0 ? (
                 <div className="empty-state">
                   <p>{t.noCallHistory}</p>
                 </div>
@@ -2463,7 +2463,7 @@ function MainApp({ user, onLogout }) {
                       <span>{t.duration}</span>
                       <span>{t.status}</span>
                     </div>
-                    {callHistory.map(call => (
+                    {allCallHistory.map(call => (
                       <div key={call.id} className="lead-item" style={{ gridTemplateColumns: '120px 1fr 150px 150px 100px 80px 100px' }}>
                         <span style={{ fontSize: 12 }}>
                           {new Date(call.created_at).toLocaleDateString()}<br/>
@@ -2509,22 +2509,22 @@ function MainApp({ user, onLogout }) {
                   </div>
 
                   {/* Pagination */}
-                  {callHistoryPagination.totalPages > 1 && (
+                  {allCallHistoryPagination.totalPages > 1 && (
                     <div className="pagination" style={{ marginTop: 20, display: 'flex', justifyContent: 'center', gap: 10 }}>
                       <button
                         className="btn btn-secondary"
-                        disabled={callHistoryPagination.page === 1}
-                        onClick={() => fetchAllCallHistory(callHistoryPagination.page - 1)}
+                        disabled={allCallHistoryPagination.page === 1}
+                        onClick={() => fetchAllCallHistory(allCallHistoryPagination.page - 1)}
                       >
                         ← {t.previous}
                       </button>
                       <span style={{ padding: '8px 16px', background: '#f3f4f6', borderRadius: 8 }}>
-                        {callHistoryPagination.page} / {callHistoryPagination.totalPages}
+                        {allCallHistoryPagination.page} / {allCallHistoryPagination.totalPages}
                       </span>
                       <button
                         className="btn btn-secondary"
-                        disabled={callHistoryPagination.page === callHistoryPagination.totalPages}
-                        onClick={() => fetchAllCallHistory(callHistoryPagination.page + 1)}
+                        disabled={allCallHistoryPagination.page === allCallHistoryPagination.totalPages}
+                        onClick={() => fetchAllCallHistory(allCallHistoryPagination.page + 1)}
                       >
                         {t.next} →
                       </button>
