@@ -552,6 +552,35 @@ app.put('/api/leads/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Delete lead (Admin only)
+app.delete('/api/leads/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete leads' });
+    }
+
+    // Delete related records first (appointments, dispositions, etc.)
+    await supabase.from('appointments').delete().eq('lead_id', id);
+    await supabase.from('lead_vendor_dispatches').delete().eq('lead_id', id);
+
+    // Delete the lead
+    const { error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Lead deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting lead:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Add note to lead
 app.post('/api/leads/:id/notes', authMiddleware, async (req, res) => {
   try {

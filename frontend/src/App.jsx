@@ -306,7 +306,11 @@ const TRANSLATIONS = {
     call: 'Llamar',
     edit: 'Editar',
     clickToOpenLead: 'Clic para abrir lead',
-    unknownCaller: 'Llamante desconocido - No en base de datos'
+    unknownCaller: 'Llamante desconocido - No en base de datos',
+    delete: 'Eliminar',
+    confirmDeleteLead: '¿Estás seguro de eliminar este lead? Esta acción no se puede deshacer.',
+    leadDeleted: 'Lead eliminado',
+    errorDeleting: 'Error al eliminar'
   },
   en: {
     // General
@@ -605,7 +609,11 @@ const TRANSLATIONS = {
     call: 'Call',
     edit: 'Edit',
     clickToOpenLead: 'Click to open lead',
-    unknownCaller: 'Unknown caller - Not in database'
+    unknownCaller: 'Unknown caller - Not in database',
+    delete: 'Delete',
+    confirmDeleteLead: 'Are you sure you want to delete this lead? This action cannot be undone.',
+    leadDeleted: 'Lead deleted',
+    errorDeleting: 'Error deleting'
   }
 }
 
@@ -1438,6 +1446,23 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Delete lead (Admin only)
+  const deleteLead = async (leadId) => {
+    try {
+      await api.delete(`/api/leads/${leadId}`)
+      setLeads(leads.filter(l => l.id !== leadId))
+      if (selectedLead?.id === leadId) {
+        setSelectedLead(null)
+        setCurrentView('leads')
+      }
+      showToast(t.leadDeleted)
+      fetchLeads()
+    } catch (error) {
+      console.error('Error deleting lead:', error)
+      showToast(t.errorDeleting, 'error')
+    }
+  }
+
   // Dispatch appointment
   const dispatchAppointment = async (appointmentId, salespersonPhone) => {
     try {
@@ -1769,7 +1794,7 @@ function MainApp({ user, onLogout }) {
                 </div>
               ) : (
                 <div className="lead-list">
-                  <div className="lead-list-header" style={{ gridTemplateColumns: '60px 2fr 1fr 1fr 100px 100px 80px' }}>
+                  <div className="lead-list-header" style={{ gridTemplateColumns: isAdmin ? '60px 2fr 1fr 1fr 100px 100px 130px' : '60px 2fr 1fr 1fr 100px 100px 100px' }}>
                     <span>#</span>
                     <span>{t.name}</span>
                     <span>{t.phone}</span>
@@ -1779,7 +1804,7 @@ function MainApp({ user, onLogout }) {
                     <span>{t.actions}</span>
                   </div>
                   {leads.map((lead, index) => (
-                    <div key={lead.id} className="lead-item" style={{ gridTemplateColumns: '60px 2fr 1fr 1fr 100px 100px 80px' }} onClick={() => selectLead(lead, index)}>
+                    <div key={lead.id} className="lead-item" style={{ gridTemplateColumns: isAdmin ? '60px 2fr 1fr 1fr 100px 100px 130px' : '60px 2fr 1fr 1fr 100px 100px 100px' }} onClick={() => selectLead(lead, index)}>
                       <span className="lead-number">L-{String(lead.lead_number || '').padStart(3, '0')}</span>
                       <div className="lead-name">
                         {lead.first_name} {lead.last_name}
@@ -1791,9 +1816,41 @@ function MainApp({ user, onLogout }) {
                       <span className={`status-badge status-${lead.status || lead.lead_status || 'new'}`}>
                         {STATUS_LABELS[lead.status] || lead.status || lead.lead_status || 'New'}
                       </span>
-                      <button className="btn btn-small btn-secondary" onClick={(e) => { e.stopPropagation(); selectLead(lead, index) }}>
-                        {t.view}
-                      </button>
+                      <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                        {lead.phone && (
+                          <button
+                            className="btn btn-small btn-success"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              await selectLead(lead, index)
+                              if (device && deviceStatus === 'ready') {
+                                makeCall(lead.phone, lead.id)
+                              }
+                            }}
+                            disabled={deviceStatus !== 'ready'}
+                            title={t.call}
+                          >
+                            📞
+                          </button>
+                        )}
+                        <button className="btn btn-small btn-secondary" onClick={(e) => { e.stopPropagation(); selectLead(lead, index) }}>
+                          {t.view}
+                        </button>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-small btn-danger"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(t.confirmDeleteLead)) {
+                                deleteLead(lead.id)
+                              }
+                            }}
+                            title={t.delete}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
