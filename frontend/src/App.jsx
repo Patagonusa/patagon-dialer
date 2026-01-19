@@ -2619,7 +2619,7 @@ function MainApp({ user, onLogout }) {
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 30 }}>
                   {(!callStatus || callStatus === 'ended') ? (
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         if (!device || deviceStatus !== 'ready') {
                           showToast(t.phoneNotReady, 'error')
                           return
@@ -2628,15 +2628,36 @@ function MainApp({ user, onLogout }) {
                           showToast(t.enterPhone, 'error')
                           return
                         }
-                        const call = device.connect({ params: { To: openDialerPhone } })
-                        setActiveCall(call)
-                        setCallStatus('connecting')
-                        call.on('accept', () => setCallStatus('connected'))
-                        call.on('disconnect', () => {
+                        try {
+                          setCallStatus('connecting')
+                          const call = await device.connect({ params: { To: openDialerPhone } })
+                          setActiveCall(call)
+
+                          call.on('accept', () => setCallStatus('connected'))
+
+                          call.on('disconnect', () => {
+                            setActiveCall(null)
+                            setCallStatus('ended')
+                            setTimeout(() => setCallStatus(null), 2000)
+                          })
+
+                          call.on('cancel', () => {
+                            setActiveCall(null)
+                            setCallStatus(null)
+                          })
+
+                          call.on('error', (error) => {
+                            console.error('Open dialer call error:', error)
+                            setActiveCall(null)
+                            setCallStatus(null)
+                            showToast(t.callError || 'Error en la llamada', 'error')
+                          })
+                        } catch (error) {
+                          console.error('Error starting open dialer call:', error)
                           setActiveCall(null)
-                          setCallStatus('ended')
-                          setTimeout(() => setCallStatus(null), 2000)
-                        })
+                          setCallStatus(null)
+                          showToast(t.callError || 'Error al llamar', 'error')
+                        }
                       }}
                       disabled={deviceStatus !== 'ready' || !openDialerPhone}
                       style={{
@@ -2656,10 +2677,17 @@ function MainApp({ user, onLogout }) {
                     <button
                       onClick={() => {
                         if (activeCall) {
-                          activeCall.disconnect()
+                          try {
+                            activeCall.disconnect()
+                          } catch (e) {
+                            console.error('Error disconnecting call:', e)
+                          }
                         }
-                        setActiveCall(null)
-                        setCallStatus(null)
+                        // Force reset state after a short delay to ensure UI updates
+                        setTimeout(() => {
+                          setActiveCall(null)
+                          setCallStatus(null)
+                        }, 500)
                       }}
                       style={{
                         width: 80,
