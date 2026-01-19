@@ -45,6 +45,23 @@ const TRANSLATIONS = {
     appointments: 'Citas',
     salespeople: 'Vendedores',
     userManagement: 'Gestión de Usuarios',
+    historical: 'Historial de Llamadas',
+
+    // Historical
+    callHistory: 'Historial de Llamadas',
+    allCalls: 'Todas las Llamadas',
+    inboundCalls: 'Entrantes',
+    outboundCalls: 'Salientes',
+    duration: 'Duración',
+    seconds: 'seg',
+    noCallHistory: 'No hay historial de llamadas',
+    calledBy: 'Llamado por',
+    unknownUser: 'Usuario desconocido',
+    filterByDate: 'Filtrar por fecha',
+    startDate: 'Fecha inicio',
+    endDate: 'Fecha fin',
+    applyFilter: 'Aplicar',
+    clearFilter: 'Limpiar',
 
     // Leads
     leadDetails: 'Detalles del Lead',
@@ -358,6 +375,23 @@ const TRANSLATIONS = {
     appointments: 'Appointments',
     salespeople: 'Salespeople',
     userManagement: 'User Management',
+    historical: 'Call History',
+
+    // Historical
+    callHistory: 'Call History',
+    allCalls: 'All Calls',
+    inboundCalls: 'Inbound',
+    outboundCalls: 'Outbound',
+    duration: 'Duration',
+    seconds: 'sec',
+    noCallHistory: 'No call history',
+    calledBy: 'Called by',
+    unknownUser: 'Unknown user',
+    filterByDate: 'Filter by date',
+    startDate: 'Start date',
+    endDate: 'End date',
+    applyFilter: 'Apply',
+    clearFilter: 'Clear',
 
     // Leads
     leadDetails: 'Lead Details',
@@ -955,6 +989,11 @@ function MainApp({ user, onLogout }) {
   // Appointment SMS modal state
   const [showAppointmentSMSModal, setShowAppointmentSMSModal] = useState(false)
 
+  // Call History states (Admin only)
+  const [callHistory, setCallHistory] = useState([])
+  const [callHistoryPagination, setCallHistoryPagination] = useState({ page: 1, totalPages: 1, total: 0 })
+  const [callHistoryFilter, setCallHistoryFilter] = useState({ direction: 'all', startDate: '', endDate: '' })
+
   const isAdmin = user.role === 'admin'
 
   // Initialize Twilio Device
@@ -1226,6 +1265,36 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Fetch ALL call history (admin only) - for Historical view
+  const fetchAllCallHistory = async (page = 1) => {
+    try {
+      const params = new URLSearchParams({
+        page,
+        limit: 25
+      })
+      if (callHistoryFilter.direction !== 'all') {
+        params.append('direction', callHistoryFilter.direction)
+      }
+      if (callHistoryFilter.startDate) {
+        params.append('startDate', callHistoryFilter.startDate)
+      }
+      if (callHistoryFilter.endDate) {
+        params.append('endDate', callHistoryFilter.endDate)
+      }
+
+      const res = await api.get(`/api/calls/history?${params}`)
+      setCallHistory(res.data.calls || [])
+      setCallHistoryPagination({
+        page: res.data.page,
+        totalPages: res.data.totalPages,
+        total: res.data.total
+      })
+    } catch (error) {
+      console.error('Error fetching all call history:', error)
+      setCallHistory([])
+    }
+  }
+
   // Fetch inbound alerts
   const fetchInboundAlerts = async () => {
     try {
@@ -1389,6 +1458,8 @@ function MainApp({ user, onLogout }) {
       fetchVendors()
     } else if (currentView === 'projects') {
       fetchProjects()
+    } else if (currentView === 'historical' && isAdmin) {
+      fetchAllCallHistory()
     }
   }, [currentView, isAdmin])
 
@@ -1718,12 +1789,20 @@ function MainApp({ user, onLogout }) {
             {t.openDialer}
           </button>
           {isAdmin && (
-            <button
-              className={currentView === 'users' ? 'active' : ''}
-              onClick={() => handleNavClick('users')}
-            >
-              {t.userManagement}
-            </button>
+            <>
+              <button
+                className={currentView === 'historical' ? 'active' : ''}
+                onClick={() => handleNavClick('historical')}
+              >
+                {t.historical}
+              </button>
+              <button
+                className={currentView === 'users' ? 'active' : ''}
+                onClick={() => handleNavClick('users')}
+              >
+                {t.userManagement}
+              </button>
+            </>
           )}
         </nav>
         {/* Quick Actions */}
@@ -2318,6 +2397,141 @@ function MainApp({ user, onLogout }) {
                 showToast={showToast}
                 isAdmin={isAdmin}
               />
+            </div>
+          </>
+        )}
+
+        {/* Call History View (Admin Only) */}
+        {currentView === 'historical' && isAdmin && (
+          <>
+            <header className="header">
+              <h2>{t.callHistory} ({callHistoryPagination.total})</h2>
+              <div className="header-actions" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  className="form-select"
+                  value={callHistoryFilter.direction}
+                  onChange={(e) => setCallHistoryFilter(prev => ({ ...prev, direction: e.target.value }))}
+                  style={{ padding: '8px 12px', borderRadius: 8 }}
+                >
+                  <option value="all">{t.allCalls}</option>
+                  <option value="outbound">{t.outboundCalls}</option>
+                  <option value="inbound">{t.inboundCalls}</option>
+                </select>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={callHistoryFilter.startDate}
+                  onChange={(e) => setCallHistoryFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                  style={{ padding: '8px 12px', borderRadius: 8 }}
+                />
+                <input
+                  type="date"
+                  className="form-input"
+                  value={callHistoryFilter.endDate}
+                  onChange={(e) => setCallHistoryFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                  style={{ padding: '8px 12px', borderRadius: 8 }}
+                />
+                <button className="btn btn-primary" onClick={() => fetchAllCallHistory(1)}>
+                  {t.applyFilter}
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setCallHistoryFilter({ direction: 'all', startDate: '', endDate: '' })
+                    fetchAllCallHistory(1)
+                  }}
+                >
+                  {t.clearFilter}
+                </button>
+              </div>
+            </header>
+
+            <div className="content">
+              {callHistory.length === 0 ? (
+                <div className="empty-state">
+                  <p>{t.noCallHistory}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="call-history-list">
+                    <div className="lead-list-header" style={{ gridTemplateColumns: '120px 1fr 150px 150px 100px 80px 100px' }}>
+                      <span>{t.date}</span>
+                      <span>Lead</span>
+                      <span>{t.phone}</span>
+                      <span>{t.calledBy}</span>
+                      <span>{t.direction}</span>
+                      <span>{t.duration}</span>
+                      <span>{t.status}</span>
+                    </div>
+                    {callHistory.map(call => (
+                      <div key={call.id} className="lead-item" style={{ gridTemplateColumns: '120px 1fr 150px 150px 100px 80px 100px' }}>
+                        <span style={{ fontSize: 12 }}>
+                          {new Date(call.created_at).toLocaleDateString()}<br/>
+                          <small>{new Date(call.created_at).toLocaleTimeString()}</small>
+                        </span>
+                        <span>
+                          {call.leads ? (
+                            <span
+                              style={{ cursor: 'pointer', color: '#3b82f6' }}
+                              onClick={() => {
+                                const lead = call.leads
+                                setSelectedLead(lead)
+                                setCurrentView('leads')
+                              }}
+                            >
+                              L-{String(call.leads.lead_number || '').padStart(3, '0')} - {call.leads.first_name} {call.leads.last_name}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#999' }}>—</span>
+                          )}
+                        </span>
+                        <span>{call.direction === 'outbound' ? call.to_number : call.from_number}</span>
+                        <span>
+                          {call.users ? (
+                            `${call.users.first_name} ${call.users.last_name}`
+                          ) : (
+                            <span style={{ color: '#999' }}>{t.unknownUser}</span>
+                          )}
+                        </span>
+                        <span>
+                          <span className={`status-badge ${call.direction === 'inbound' ? 'status-callback' : 'status-new'}`}>
+                            {call.direction === 'inbound' ? t.inboundCalls : t.outboundCalls}
+                          </span>
+                        </span>
+                        <span>{call.duration ? `${call.duration} ${t.seconds}` : '—'}</span>
+                        <span>
+                          <span className={`status-badge ${call.status === 'completed' ? 'status-appointment' : call.status === 'no-answer' ? 'status-closed' : 'status-new'}`}>
+                            {call.status || '—'}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {callHistoryPagination.totalPages > 1 && (
+                    <div className="pagination" style={{ marginTop: 20, display: 'flex', justifyContent: 'center', gap: 10 }}>
+                      <button
+                        className="btn btn-secondary"
+                        disabled={callHistoryPagination.page === 1}
+                        onClick={() => fetchAllCallHistory(callHistoryPagination.page - 1)}
+                      >
+                        ← {t.previous}
+                      </button>
+                      <span style={{ padding: '8px 16px', background: '#f3f4f6', borderRadius: 8 }}>
+                        {callHistoryPagination.page} / {callHistoryPagination.totalPages}
+                      </span>
+                      <button
+                        className="btn btn-secondary"
+                        disabled={callHistoryPagination.page === callHistoryPagination.totalPages}
+                        onClick={() => fetchAllCallHistory(callHistoryPagination.page + 1)}
+                      >
+                        {t.next} →
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}

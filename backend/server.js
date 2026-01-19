@@ -811,6 +811,51 @@ app.get('/api/leads/:id/calls', authMiddleware, async (req, res) => {
   }
 });
 
+// Get all call history (Admin Only) - Historical tab
+app.get('/api/calls/history', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { page = 1, limit = 25, direction, startDate, endDate } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('calls')
+      .select(`
+        *,
+        leads (id, lead_number, first_name, last_name, phone, address, city),
+        users (id, first_name, last_name, email)
+      `, { count: 'exact' });
+
+    // Filter by direction if specified
+    if (direction && direction !== 'all') {
+      query = query.eq('direction', direction);
+    }
+
+    // Filter by date range if specified
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate + 'T23:59:59Z');
+    }
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    res.json({
+      calls: data || [],
+      total: count || 0,
+      page: parseInt(page),
+      totalPages: Math.ceil((count || 0) / limit)
+    });
+  } catch (error) {
+    console.error('Error fetching call history:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Twilio webhook for call status
 app.post('/api/webhook/call-status', express.urlencoded({ extended: true }), async (req, res) => {
   try {
@@ -1501,10 +1546,18 @@ app.post('/api/voice/outbound', express.urlencoded({ extended: true }), async (r
 
   console.log('Outbound call request:', { To, leadId, CallSid, From, Caller });
 
+  // Look up user from identity (From contains the client identity)
+  const identity = From?.replace('client:', '');
+  const clientInfo = identity ? onlineClients.get(identity) : null;
+  const userId = clientInfo?.userId || null;
+
+  console.log('Call from user:', { identity, userId, email: clientInfo?.email });
+
   // Save call record
   try {
     await supabase.from('calls').insert({
       lead_id: leadId || null,
+      user_id: userId,
       direction: 'outbound',
       from_number: TWILIO_PHONE,
       to_number: To,
@@ -1512,7 +1565,7 @@ app.post('/api/voice/outbound', express.urlencoded({ extended: true }), async (r
       status: 'initiated',
       created_at: new Date().toISOString()
     });
-    console.log('Call record saved:', CallSid);
+    console.log('Call record saved:', CallSid, 'by user:', userId);
   } catch (error) {
     console.error('Error saving call record:', error);
   }
@@ -1547,9 +1600,10 @@ app.post('/api/voice/call', authMiddleware, async (req, res) => {
       recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/call-status'
     });
 
-    // Save call record
+    // Save call record with user_id
     await supabase.from('calls').insert({
       lead_id: leadId,
+      user_id: req.user.id,
       direction: 'outbound',
       from_number: TWILIO_PHONE,
       to_number: to,
