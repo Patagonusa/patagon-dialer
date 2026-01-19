@@ -106,6 +106,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    if (user.status === 'suspended') {
+      return res.status(403).json({ error: 'Account suspended. Contact administrator.' });
+    }
+
     if (user.status !== 'approved') {
       return res.status(403).json({ error: 'Account pending approval' });
     }
@@ -271,6 +275,51 @@ app.put('/api/users/:id/role', authMiddleware, adminMiddleware, async (req, res)
     if (error) throw error;
 
     res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Suspend user (remove access)
+app.post('/api/users/:id/suspend', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Don't allow suspending yourself
+    if (id === req.user.id) {
+      return res.status(400).json({ error: 'Cannot suspend yourself' });
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ status: 'suspended', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: 'User suspended', user: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reactivate user (restore access)
+app.post('/api/users/:id/reactivate', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: 'User reactivated', user: data });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

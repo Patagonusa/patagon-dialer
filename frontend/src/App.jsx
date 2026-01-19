@@ -314,7 +314,13 @@ const TRANSLATIONS = {
     openLead: 'Abrir Lead',
     at: 'a las',
     confirmDeleteAppointment: '¿Estás seguro de eliminar esta cita?',
-    appointmentDeleted: 'Cita eliminada'
+    appointmentDeleted: 'Cita eliminada',
+    suspend: 'Suspender',
+    reactivate: 'Reactivar',
+    userSuspended: 'Usuario suspendido',
+    userReactivated: 'Usuario reactivado',
+    suspended: 'Suspendido',
+    confirmSuspend: '¿Estás seguro de suspender este usuario? No podrá acceder a la aplicación.'
   },
   en: {
     // General
@@ -621,7 +627,13 @@ const TRANSLATIONS = {
     openLead: 'Open Lead',
     at: 'at',
     confirmDeleteAppointment: 'Are you sure you want to delete this appointment?',
-    appointmentDeleted: 'Appointment deleted'
+    appointmentDeleted: 'Appointment deleted',
+    suspend: 'Suspend',
+    reactivate: 'Reactivate',
+    userSuspended: 'User suspended',
+    userReactivated: 'User reactivated',
+    suspended: 'Suspended',
+    confirmSuspend: 'Are you sure you want to suspend this user? They will not be able to access the app.'
   }
 }
 
@@ -1560,6 +1572,28 @@ function MainApp({ user, onLogout }) {
     }
   }
 
+  // Suspend user
+  const suspendUser = async (userId) => {
+    try {
+      await api.post(`/api/users/${userId}/suspend`)
+      fetchUsers()
+      showToast(t.userSuspended)
+    } catch (error) {
+      showToast(t.errorSaving, 'error')
+    }
+  }
+
+  // Reactivate user
+  const reactivateUser = async (userId) => {
+    try {
+      await api.post(`/api/users/${userId}/reactivate`)
+      fetchUsers()
+      showToast(t.userReactivated)
+    } catch (error) {
+      showToast(t.errorSaving, 'error')
+    }
+  }
+
   // Mark alert as read
   const markAlertRead = async (alertId) => {
     try {
@@ -2311,23 +2345,40 @@ function MainApp({ user, onLogout }) {
                     <span className={`status-badge ${u.role === 'admin' ? 'status-appointment' : 'status-new'}`}>
                       {u.role === 'admin' ? 'Admin' : 'Usuario'}
                     </span>
-                    <span className={`status-badge status-${u.status === 'approved' ? 'appointment' : u.status === 'pending' ? 'callback' : 'closed'}`}>
-                      {STATUS_LABELS[u.status] || u.status}
+                    <span className={`status-badge status-${u.status === 'approved' ? 'appointment' : u.status === 'pending' ? 'callback' : u.status === 'suspended' ? 'closed' : 'closed'}`}>
+                      {u.status === 'suspended' ? t.suspended : (STATUS_LABELS[u.status] || u.status)}
                     </span>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {u.status === 'pending' && (
                         <>
                           <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
-                            Aprobar
+                            {t.approve}
                           </button>
                           <button className="btn btn-danger btn-small" onClick={() => rejectUser(u.id)}>
-                            Rechazar
+                            {t.reject}
                           </button>
                         </>
                       )}
                       {u.status === 'rejected' && (
                         <button className="btn btn-success btn-small" onClick={() => approveUser(u.id)}>
-                          Aprobar
+                          {t.approve}
+                        </button>
+                      )}
+                      {u.status === 'approved' && u.id !== user.id && (
+                        <button
+                          className="btn btn-danger btn-small"
+                          onClick={() => {
+                            if (confirm(t.confirmSuspend)) {
+                              suspendUser(u.id)
+                            }
+                          }}
+                        >
+                          {t.suspend}
+                        </button>
+                      )}
+                      {u.status === 'suspended' && (
+                        <button className="btn btn-success btn-small" onClick={() => reactivateUser(u.id)}>
+                          {t.reactivate}
                         </button>
                       )}
                     </div>
