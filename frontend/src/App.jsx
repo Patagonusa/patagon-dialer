@@ -897,6 +897,7 @@ function MainApp({ user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sortOrder, setSortOrder] = useState('desc')
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
+  const [appointmentsPagination, setAppointmentsPagination] = useState({ page: 1, totalPages: 1, total: 0 })
   const [toast, setToast] = useState(null)
 
   // Modal states
@@ -1133,7 +1134,7 @@ function MainApp({ user, onLogout }) {
     try {
       const params = new URLSearchParams({
         page,
-        limit: 50,
+        limit: 25,
         status: statusFilter,
         disposition: dispositionFilter,
         search: searchTerm,
@@ -1179,10 +1180,15 @@ function MainApp({ user, onLogout }) {
   }
 
   // Fetch appointments
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (page = 1) => {
     try {
-      const res = await api.get('/api/appointments')
-      setAppointments(res.data)
+      const res = await api.get(`/api/appointments?page=${page}&limit=25`)
+      setAppointments(res.data.appointments || [])
+      setAppointmentsPagination({
+        page: res.data.page,
+        totalPages: res.data.totalPages,
+        total: res.data.total
+      })
     } catch (error) {
       console.error('Error fetching appointments:', error)
     }
@@ -2235,6 +2241,29 @@ function MainApp({ user, onLogout }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Appointments Pagination */}
+              {appointmentsPagination.totalPages > 1 && (
+                <div className="pagination" style={{ marginTop: 16 }}>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={appointmentsPagination.page === 1}
+                    onClick={() => fetchAppointments(appointmentsPagination.page - 1)}
+                  >
+                    {t.previous}
+                  </button>
+                  <span style={{ margin: '0 16px' }}>
+                    {t.page} {appointmentsPagination.page} {t.of} {appointmentsPagination.totalPages}
+                  </span>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={appointmentsPagination.page === appointmentsPagination.totalPages}
+                    onClick={() => fetchAppointments(appointmentsPagination.page + 1)}
+                  >
+                    {t.next}
+                  </button>
                 </div>
               )}
             </div>

@@ -383,7 +383,7 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
       sort = 'created_at',
       order = 'desc',
       page = 1,
-      limit = 50
+      limit = 25
     } = req.query;
     const offset = (page - 1) * limit;
 
@@ -1191,20 +1191,29 @@ app.post('/api/leads/:id/dispositions', authMiddleware, async (req, res) => {
 
 // ==================== APPOINTMENTS ENDPOINTS ====================
 
-// Get all appointments
+// Get all appointments (with pagination)
 app.get('/api/appointments', authMiddleware, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { page = 1, limit = 25 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const { data, error, count } = await supabase
       .from('appointments')
       .select(`
         *,
         leads (id, lead_number, first_name, last_name, phone, address, city, state, zip, job_group)
-      `)
-      .order('appointment_date', { ascending: true });
+      `, { count: 'exact' })
+      .order('appointment_date', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    res.json(data);
+    res.json({
+      appointments: data,
+      total: count,
+      page: parseInt(page),
+      totalPages: Math.ceil(count / limit)
+    });
   } catch (error) {
     console.error('Error fetching appointments:', error);
     res.status(500).json({ error: error.message });
