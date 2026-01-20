@@ -434,13 +434,17 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
       page = 1,
       limit = 25
     } = req.query;
-    const offset = (page - 1) * limit;
+
+    // Parse as integers to avoid string concatenation issues
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 25;
+    const offset = (pageNum - 1) * limitNum;
 
     let query = supabase
       .from('leads')
       .select('*', { count: 'exact' })
       .order(sort, { ascending: order === 'asc' })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limitNum - 1);
 
     // Status filter
     if (status && status !== 'all') {
@@ -469,8 +473,8 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
     res.json({
       leads: data,
       total: count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+      page: pageNum,
+      totalPages: Math.ceil(count / limitNum)
     });
   } catch (error) {
     console.error('Error fetching leads:', error);
