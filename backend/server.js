@@ -839,14 +839,20 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
     }
 
     // Get the current max lead_number to assign sequential numbers
-    const { data: maxData } = await supabase
+    // Filter out NULLs and use proper ordering
+    const { data: maxData, error: maxError } = await supabase
       .from('leads')
       .select('lead_number')
+      .not('lead_number', 'is', null)
       .order('lead_number', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    let nextLeadNumber = (maxData?.lead_number || 0) + 1;
+    let nextLeadNumber = 1;
+    if (maxData && maxData.length > 0 && maxData[0].lead_number) {
+      nextLeadNumber = maxData[0].lead_number + 1;
+    }
+
+    console.log('Max lead_number found:', maxData?.[0]?.lead_number, '-> Starting at:', nextLeadNumber);
 
     // Assign sequential lead_numbers to each lead
     const leadsWithNumbers = validLeads.map((lead, index) => ({
