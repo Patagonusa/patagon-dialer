@@ -39,9 +39,12 @@ const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 // Track online clients (in-memory store)
 const onlineClients = new Map(); // identity -> { userId, lastSeen }
 
-// Multer for file uploads
+// Multer for file uploads (limit to 10MB)
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // ==================== AUTH HELPERS ====================
 
@@ -768,24 +771,38 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
       return res.status(400).json({ error: 'No valid leads found. Each lead must have at least one phone number.' });
     }
 
-    const { data, error } = await supabase
-      .from('leads')
-      .insert(validLeads)
-      .select();
+    // Insert in batches to avoid timeout and memory issues
+    const batchSize = 100;
+    let totalInserted = 0;
 
-    if (error) {
-      console.error('Supabase insert error:', error);
-      throw error;
+    for (let i = 0; i < validLeads.length; i += batchSize) {
+      const batch = validLeads.slice(i, i + batchSize);
+      console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(validLeads.length/batchSize)} (${batch.length} records)`);
+
+      const { data, error } = await supabase
+        .from('leads')
+        .insert(batch)
+        .select();
+
+      if (error) {
+        console.error('Supabase insert error:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error('Failed batch sample:', JSON.stringify(batch[0], null, 2));
+        throw new Error(`Database error: ${error.message || error.code || 'Unknown error'}`);
+      }
+
+      totalInserted += data.length;
     }
 
     res.json({
-      message: `Successfully imported ${data.length} leads`,
-      count: data.length,
+      message: `Successfully imported ${totalInserted} leads`,
+      count: totalInserted,
       skipped: leads.length - validLeads.length
     });
   } catch (error) {
     console.error('Error uploading file:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: error.message || 'Unknown error occurred' });
   }
 });
 
