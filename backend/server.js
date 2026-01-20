@@ -437,13 +437,17 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
       page = 1,
       limit = 25
     } = req.query;
-    const offset = (page - 1) * limit;
+
+    // Parse as integers to avoid string concatenation issues
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 25;
+    const offset = (pageNum - 1) * limitNum;
 
     let query = supabase
       .from('leads')
       .select('*', { count: 'exact' })
       .order(sort, { ascending: order === 'asc' })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limitNum - 1);
 
     // Status filter
     if (status && status !== 'all') {
@@ -472,8 +476,8 @@ app.get('/api/leads', authMiddleware, async (req, res) => {
     res.json({
       leads: data,
       total: count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+      page: pageNum,
+      totalPages: Math.ceil(count / limitNum)
     });
   } catch (error) {
     console.error('Error fetching leads:', error);
@@ -551,9 +555,20 @@ app.post('/api/leads', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'First name and phone are required' });
     }
 
+    // Get next lead_number
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextLeadNumber = (maxData?.lead_number || 0) + 1;
+
     const { data, error } = await supabase
       .from('leads')
       .insert({
+        lead_number: nextLeadNumber,
         first_name,
         last_name: last_name || '',
         phone,
@@ -705,6 +720,58 @@ function parseExcelDate(value) {
   return null;
 }
 
+// Fix leads with missing lead_numbers (Admin Only)
+app.post('/api/leads/fix-numbers', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    // Get all leads with lead_number = 0 or NULL, ordered by created_at
+    const { data: leadsToFix, error: fetchError } = await supabase
+      .from('leads')
+      .select('id, created_at')
+      .or('lead_number.is.null,lead_number.eq.0')
+      .order('created_at', { ascending: true });
+
+    if (fetchError) throw fetchError;
+
+    if (!leadsToFix || leadsToFix.length === 0) {
+      return res.json({ message: 'No leads need fixing', fixed: 0 });
+    }
+
+    // Get the current max lead_number
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .gt('lead_number', 0)
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextNumber = (maxData?.lead_number || 0) + 1;
+
+    // Update each lead with a proper lead_number
+    let fixedCount = 0;
+    for (const lead of leadsToFix) {
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ lead_number: nextNumber })
+        .eq('id', lead.id);
+
+      if (!updateError) {
+        fixedCount++;
+        nextNumber++;
+      }
+    }
+
+    res.json({
+      message: `Fixed ${fixedCount} leads`,
+      fixed: fixedCount,
+      total: leadsToFix.length
+    });
+  } catch (error) {
+    console.error('Error fixing lead numbers:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Upload Excel/CSV file (Admin Only)
 app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('file'), async (req, res) => {
   try {
@@ -771,13 +838,29 @@ app.post('/api/leads/upload', authMiddleware, adminMiddleware, upload.single('fi
       return res.status(400).json({ error: 'No valid leads found. Each lead must have at least one phone number.' });
     }
 
+    // Get the current max lead_number to assign sequential numbers
+    const { data: maxData } = await supabase
+      .from('leads')
+      .select('lead_number')
+      .order('lead_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    let nextLeadNumber = (maxData?.lead_number || 0) + 1;
+
+    // Assign sequential lead_numbers to each lead
+    const leadsWithNumbers = validLeads.map((lead, index) => ({
+      ...lead,
+      lead_number: nextLeadNumber + index
+    }));
+
     // Insert in batches to avoid timeout and memory issues
     const batchSize = 100;
     let totalInserted = 0;
 
-    for (let i = 0; i < validLeads.length; i += batchSize) {
-      const batch = validLeads.slice(i, i + batchSize);
-      console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(validLeads.length/batchSize)} (${batch.length} records)`);
+    for (let i = 0; i < leadsWithNumbers.length; i += batchSize) {
+      const batch = leadsWithNumbers.slice(i, i + batchSize);
+      console.log(`Inserting batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(leadsWithNumbers.length/batchSize)} (${batch.length} records)`);
 
       const { data, error } = await supabase
         .from('leads')
@@ -825,6 +908,51 @@ app.get('/api/leads/:id/calls', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error fetching call history:', error);
     res.json([]); // Return empty array if table doesn't exist yet
+  }
+});
+
+// Get all call history (Admin Only) - Historical tab
+app.get('/api/calls/history', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { page = 1, limit = 25, direction, startDate, endDate } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('calls')
+      .select(`
+        *,
+        leads (id, lead_number, first_name, last_name, phone, address, city),
+        users (id, first_name, last_name, email)
+      `, { count: 'exact' });
+
+    // Filter by direction if specified
+    if (direction && direction !== 'all') {
+      query = query.eq('direction', direction);
+    }
+
+    // Filter by date range if specified
+    if (startDate) {
+      query = query.gte('created_at', startDate);
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate + 'T23:59:59Z');
+    }
+
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    res.json({
+      calls: data || [],
+      total: count || 0,
+      page: parseInt(page),
+      totalPages: Math.ceil((count || 0) / limit)
+    });
+  } catch (error) {
+    console.error('Error fetching call history:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -1518,10 +1646,18 @@ app.post('/api/voice/outbound', express.urlencoded({ extended: true }), async (r
 
   console.log('Outbound call request:', { To, leadId, CallSid, From, Caller });
 
+  // Look up user from identity (From contains the client identity)
+  const identity = From?.replace('client:', '');
+  const clientInfo = identity ? onlineClients.get(identity) : null;
+  const userId = clientInfo?.userId || null;
+
+  console.log('Call from user:', { identity, userId, email: clientInfo?.email });
+
   // Save call record
   try {
     await supabase.from('calls').insert({
       lead_id: leadId || null,
+      user_id: userId,
       direction: 'outbound',
       from_number: TWILIO_PHONE,
       to_number: To,
@@ -1529,7 +1665,7 @@ app.post('/api/voice/outbound', express.urlencoded({ extended: true }), async (r
       status: 'initiated',
       created_at: new Date().toISOString()
     });
-    console.log('Call record saved:', CallSid);
+    console.log('Call record saved:', CallSid, 'by user:', userId);
   } catch (error) {
     console.error('Error saving call record:', error);
   }
@@ -1564,9 +1700,10 @@ app.post('/api/voice/call', authMiddleware, async (req, res) => {
       recordingStatusCallback: 'https://patagon-dialer-api.onrender.com/api/webhook/call-status'
     });
 
-    // Save call record
+    // Save call record with user_id
     await supabase.from('calls').insert({
       lead_id: leadId,
+      user_id: req.user.id,
       direction: 'outbound',
       from_number: TWILIO_PHONE,
       to_number: to,
